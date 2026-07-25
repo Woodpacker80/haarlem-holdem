@@ -45,6 +45,7 @@
 <div id="actions"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
+<div id="debug" style="font-size:9px;color:#3a3f52;max-width:340px;word-break:break-all;margin-top:20px;"></div>
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
@@ -80,7 +81,13 @@ let latestPublicState = null;
 
   watchPublicState((state) => {
     latestPublicState = state;
-    render(state);
+    document.getElementById('debug').textContent = 'mySeat=' + mySeat + ' | raw state: ' + JSON.stringify(state);
+    try {
+      render(state);
+    } catch (e) {
+      document.getElementById('error').textContent = '⚠ render crashed: ' + e.message;
+      console.error(e);
+    }
   });
 })();
 

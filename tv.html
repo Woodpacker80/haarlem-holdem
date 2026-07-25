@@ -45,6 +45,7 @@
 <p class="sub">This screen runs the game and shares it with every phone in the room. Keep this
 open for the whole session.</p>
 <div id="conn">connecting…</div>
+<div id="tvError" style="color:#BE1622;font-size:12px;min-height:16px;"></div>
 
 <div id="setupArea">
   <div id="seatList">Waiting for players to join…</div>
@@ -103,8 +104,14 @@ function publicStateFrom(h) {
 }
 
 function publish() {
-  writePublicState(publicStateFrom(handState));
-  render();
+  try {
+    writePublicState(publicStateFrom(handState));
+    render();
+    document.getElementById('tvError').textContent = '';
+  } catch (e) {
+    document.getElementById('tvError').textContent = '⚠ publish crashed: ' + e.message;
+    console.error(e);
+  }
 }
 
 function dealFirstHand() {
@@ -159,7 +166,9 @@ watchActionQueue((key, request) => {
   try {
     handState = applyHandAction(handState, request.seat, request.action);
     publish();
+    document.getElementById('tvError').textContent = '';
   } catch (e) {
+    document.getElementById('tvError').textContent = '⚠ Rejected action from Seat ' + (request.seat + 1) + ': ' + e.message;
     console.error('Rejected action from seat', request.seat, ':', e.message);
   }
 });
