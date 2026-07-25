@@ -56,6 +56,7 @@ open for the whole session.</p>
 </div>
 
 <div id="jumbo" style="display:none;">
+  <div style="text-align:right;"><button id="newGameBtn" style="padding:6px 12px;font-size:11px;">New Game</button></div>
   <div id="statusLine"></div>
   <div id="boardArea"></div>
   <table id="seatTable"></table>
@@ -182,6 +183,20 @@ watchSeats((seats) => {
 });
 
 document.getElementById('startBtn').addEventListener('click', dealFirstHand);
+
+// Lets the host manually reset whenever things get stuck (e.g. a phone
+// dropped mid-hand and everything's showing stale data) rather than
+// relying entirely on automatic reconnect handling. Clears the in-progress
+// game state but leaves currently-claimed seats alone, so players don't
+// have to rejoin — just hit Start Game again once ready.
+document.getElementById('newGameBtn').addEventListener('click', () => {
+  handState = null;
+  gameConfig = null;
+  writePublicState(null);
+  document.getElementById('jumbo').style.display = 'none';
+  document.getElementById('setupArea').style.display = 'block';
+  document.getElementById('startBtn').disabled = Object.keys(currentSeats).length < 2;
+});
 
 function render() {
   if (!handState) return;
