@@ -100,6 +100,14 @@ function render(state) {
     document.getElementById('others').innerHTML = '';
     return;
   }
+  // BUG FIX: Firebase Realtime Database silently drops any field written as
+  // an empty array (or empty object) — it treats [] as "no data" rather
+  // than "an empty list". board and foldedSeats both start out empty
+  // (before the flop, and before anyone folds), so they were routinely
+  // missing from what actually arrives here, crashing every `.map()` /
+  // `.includes()` call below. Normalizing once here means every usage
+  // after this point can safely assume a real array exists.
+  state = { ...state, board: state.board || [], foldedSeats: state.foldedSeats || [] };
 
   document.getElementById('board').innerHTML = state.board.map(renderCard).join('') || '<span style="color:#7d8299;font-size:12px;">pre-flop</span>';
 
