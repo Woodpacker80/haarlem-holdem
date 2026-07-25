@@ -7,71 +7,150 @@
 <style>
   html,body{margin:0;padding:0;height:100%;background:#080c18;color:#e9e2cf;
     font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:22px;touch-action:none;}
-  h1{font-size:13px;letter-spacing:.08em;color:#c9a84c;text-transform:uppercase;margin:0;}
-  .sub{font-size:11px;color:#7d8299;text-align:center;max-width:280px;line-height:1.5;margin:0;}
-  #status{display:flex;gap:14px;font-size:11px;color:#7d8299;}
-  .dot{width:8px;height:8px;border-radius:50%;background:#3a3f52;display:inline-block;margin-right:5px;}
-  .dot.on{background:#3fbf6f;}
-  #squeezeBtn{width:180px;height:180px;border-radius:50%;border:3px solid #c9a84c;background:rgba(190,22,34,0.15);
-    color:#c9a84c;font-size:14px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
-    display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;}
-  #squeezeBtn:active{background:rgba(190,22,34,0.4);transform:scale(0.97);}
-  #log{width:280px;max-height:120px;overflow-y:auto;font-size:10px;color:#7d8299;
-    border-top:1px solid #1c2338;padding-top:8px;line-height:1.6;}
-  #log div{color:#c9a84c;}
+    align-items:center;justify-content:flex-start;gap:16px;padding:20px;}
+  h1{font-size:14px;letter-spacing:.06em;color:#c9a84c;text-transform:uppercase;margin:0;}
+  .sub{font-size:11px;color:#7d8299;text-align:center;max-width:320px;line-height:1.5;margin:0;}
   #conn{font-size:10px;letter-spacing:.05em;text-transform:uppercase;}
-  #conn.bad{color:#BE1622;}
-  #conn.good{color:#3fbf6f;}
+  #conn.bad{color:#BE1622;} #conn.good{color:#3fbf6f;}
+  #seatBadge{font-size:13px;color:#c9a84c;}
+  #board{text-align:center;min-height:44px;}
+  .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
+    padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
+  .card.red{color:#BE1622;}
+  #myHand{text-align:center;}
+  #myHand .card{font-size:22px;padding:8px 12px;}
+  #info{font-size:13px;color:#7d8299;text-align:center;}
+  #actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
+  button{background:transparent;border:2px solid #c9a84c;color:#c9a84c;padding:12px 18px;
+    border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
+  button:hover{background:rgba(201,168,76,0.15);}
+  button.fold{border-color:#BE1622;color:#BE1622;}
+  button.fold:hover{background:rgba(190,22,34,0.15);}
+  #others{font-size:11px;color:#7d8299;text-align:center;line-height:1.7;}
+  #others .folded{text-decoration:line-through;color:#3a3f52;}
+  #others .acting{color:#c9a84c;font-weight:700;}
+  #resultBox{text-align:center;font-size:13px;color:#c9a84c;max-width:320px;}
+  #error{color:#BE1622;font-size:11px;min-height:14px;}
 </style>
 </head>
 <body>
-<h1>Phone — Player Action</h1>
-<p class="sub">Phase 1 sync test. Tap the button to send a squeeze action to the tablet and TV over Realtime Database.</p>
+<h1>Phone — Player</h1>
 <div id="conn">connecting…</div>
-<div id="status">
-  <span><span class="dot" id="dotPhone"></span>phone</span>
-  <span><span class="dot" id="dotTablet"></span>tablet</span>
-  <span><span class="dot" id="dotTv"></span>tv</span>
-</div>
-<button id="squeezeBtn">SQUEEZE<br>TO SEND</button>
-<div id="log"></div>
+<div id="seatBadge">joining…</div>
+<div id="error"></div>
+
+<div id="board"></div>
+<div id="info"></div>
+<div id="myHand"></div>
+<div id="actions"></div>
+<div id="others"></div>
+<div id="resultBox"></div>
 
 <script type="module">
-import { ensureAuth, registerPresence, watchPresence, sendAction, watchConnection } from './firebase-config.js';
+import { ensureAuth, watchConnection } from './firebase-config.js';
+import { claimSeat, watchPublicState, watchOwnHoleCards, requestAction } from './game-sync.js';
+import { getLegalActions } from './betting-round.js';
 
-const logEl = document.getElementById('log');
 const connEl = document.getElementById('conn');
-const btn = document.getElementById('squeezeBtn');
-
-function logLine(text) {
-  const d = document.createElement('div');
-  d.textContent = text;
-  logEl.prepend(d);
-}
-
 watchConnection((connected) => {
   connEl.textContent = connected ? 'connected' : 'disconnected';
   connEl.className = connected ? 'good' : 'bad';
 });
 
+function renderCard(card) {
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  return `<span class="card${isRed ? ' red' : ''}">${card.rank}${card.suit}</span>`;
+}
+
+let mySeat = null;
+let latestPublicState = null;
+
 (async () => {
   const uid = await ensureAuth();
-  logLine(`signed in: ${uid.slice(0,8)}…`);
-  registerPresence('phone');
-  watchPresence((p) => {
-    document.getElementById('dotPhone').classList.toggle('on', !!p.phone?.online);
-    document.getElementById('dotTablet').classList.toggle('on', !!p.tablet?.online);
-    document.getElementById('dotTv').classList.toggle('on', !!p.tv?.online);
+  mySeat = await claimSeat(uid);
+  if (mySeat === null) {
+    document.getElementById('seatBadge').textContent = 'Room is full — could not join.';
+    return;
+  }
+  document.getElementById('seatBadge').textContent = `You are Seat ${mySeat + 1}`;
+
+  watchOwnHoleCards(mySeat, (cards) => {
+    document.getElementById('myHand').innerHTML = cards ? cards.map(renderCard).join('') : '<span style="color:#7d8299;font-size:12px;">waiting for the deal…</span>';
+  });
+
+  watchPublicState((state) => {
+    latestPublicState = state;
+    render(state);
   });
 })();
 
-let seq = 0;
-btn.addEventListener('click', async () => {
-  seq += 1;
-  await sendAction('phone', 'squeeze', { seq });
-  logLine(`sent squeeze #${seq}`);
-});
+function render(state) {
+  const errorEl = document.getElementById('error');
+  if (!state) {
+    document.getElementById('info').textContent = 'Waiting for the host to start the game…';
+    document.getElementById('actions').innerHTML = '';
+    document.getElementById('board').innerHTML = '';
+    document.getElementById('others').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('board').innerHTML = state.board.map(renderCard).join('') || '<span style="color:#7d8299;font-size:12px;">pre-flop</span>';
+
+  const myStack = state.stacks[mySeat];
+  const myBet = state.bets[mySeat] || 0;
+  document.getElementById('info').textContent = state.result
+    ? 'Hand complete — waiting for the next hand'
+    : `Your stack: ${myStack}   Your bet: ${myBet}   Current bet: ${state.currentBet}`;
+
+  // Other seats, status only (no cards unless it's a real showdown reveal).
+  const others = state.activeSeats.filter(s => s !== mySeat).map(seat => {
+    const folded = state.foldedSeats.includes(seat);
+    const acting = state.actingSeat === seat;
+    const cls = folded ? 'folded' : (acting ? 'acting' : '');
+    const revealedCards = state.revealedHoleCards && state.revealedHoleCards[seat]
+      ? ' ' + state.revealedHoleCards[seat].map(renderCard).join('') : '';
+    return `<div class="${cls}">Seat ${seat + 1}: ${state.stacks[seat]} chips${revealedCards}</div>`;
+  }).join('');
+  document.getElementById('others').innerHTML = others;
+
+  // Action buttons — only when it's genuinely my turn, computed the same
+  // way the host will validate it (getLegalActions is a pure function, so
+  // running it here just predicts what the host will accept).
+  const actionsEl = document.getElementById('actions');
+  if (!state.result && state.actingSeat === mySeat) {
+    const fakeBettingRoundState = {
+      actingSeat: state.actingSeat, activeSeats: state.activeSeats, folded: state.foldedSeats,
+      allIn: state.activeSeats.filter(s => state.stacks[s] === 0 && !state.foldedSeats.includes(s)),
+      bets: state.bets, stacks: state.stacks, currentBet: state.currentBet, minRaiseAmount: state.minRaiseAmount,
+    };
+    const { legal, toCall, minRaiseTotal, maxRaiseTotal } = getLegalActions(fakeBettingRoundState, mySeat);
+    actionsEl.innerHTML = legal.map(type => {
+      if (type === 'raise') {
+        return `<button data-type="raise" data-amount="${minRaiseTotal}">Raise to ${minRaiseTotal}</button>
+                <button data-type="raise" data-amount="${maxRaiseTotal}">All-in (${maxRaiseTotal})</button>`;
+      }
+      const label = type === 'call' ? `Call ${toCall}` : type[0].toUpperCase() + type.slice(1);
+      return `<button data-type="${type}"${type === 'fold' ? ' class="fold"' : ''}>${label}</button>`;
+    }).join('');
+    actionsEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        const action = type === 'raise' ? { type, amount: Number(btn.dataset.amount) } : { type };
+        requestAction(mySeat, action);
+        errorEl.textContent = '';
+        actionsEl.innerHTML = ''; // avoid double-taps while waiting for the host to process
+      });
+    });
+  } else {
+    actionsEl.innerHTML = '';
+  }
+
+  document.getElementById('resultBox').textContent = state.result
+    ? (state.result.uncontested
+        ? `Seat ${Object.entries(state.result.payouts).find(([,a]) => a > 0)[0] * 1 + 1} wins uncontested.`
+        : 'Showdown — see the TV for full results.')
+    : '';
+}
 </script>
 </body>
 </html>
