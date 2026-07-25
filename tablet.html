@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haarlem Hold'em — Tablet</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#080c18;color:#e9e2cf;
+    font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:20px;}
+  h1{font-size:14px;letter-spacing:.08em;color:#c9a84c;text-transform:uppercase;margin:0;}
+  .sub{font-size:11px;color:#7d8299;text-align:center;max-width:340px;line-height:1.5;margin:0;}
+  #status{display:flex;gap:14px;font-size:11px;color:#7d8299;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#3a3f52;display:inline-block;margin-right:5px;}
+  .dot.on{background:#3fbf6f;}
+  #conn{font-size:10px;letter-spacing:.05em;text-transform:uppercase;}
+  #conn.bad{color:#BE1622;}
+  #conn.good{color:#3fbf6f;}
+  #feltCard{width:420px;max-width:92vw;border:2px solid #c9a84c;border-radius:14px;
+    background:rgba(190,22,34,0.08);padding:22px;text-align:center;}
+  #lastEvent{font-size:22px;color:#c9a84c;font-weight:700;letter-spacing:.04em;}
+  #latency{font-size:11px;color:#7d8299;margin-top:4px;}
+  #log{width:340px;max-height:140px;overflow-y:auto;font-size:10px;color:#7d8299;
+    border-top:1px solid #1c2338;padding-top:8px;line-height:1.6;}
+  #log div{color:#c9a84c;}
+</style>
+</head>
+<body>
+<h1>Tablet — Dealer Felt</h1>
+<p class="sub">Phase 1 sync test. Listening for actions from the phone over Realtime Database.</p>
+<div id="conn">connecting…</div>
+<div id="status">
+  <span><span class="dot" id="dotPhone"></span>phone</span>
+  <span><span class="dot" id="dotTablet"></span>tablet</span>
+  <span><span class="dot" id="dotTv"></span>tv</span>
+</div>
+<div id="feltCard">
+  <div id="lastEvent">waiting for phone…</div>
+  <div id="latency"></div>
+</div>
+<div id="log"></div>
+
+<script type="module">
+import { ensureAuth, registerPresence, watchPresence, watchActions, watchConnection } from './firebase-config.js';
+
+const logEl = document.getElementById('log');
+const connEl = document.getElementById('conn');
+const lastEventEl = document.getElementById('lastEvent');
+const latencyEl = document.getElementById('latency');
+
+function logLine(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  logEl.prepend(d);
+}
+
+watchConnection((connected) => {
+  connEl.textContent = connected ? 'connected' : 'disconnected';
+  connEl.className = connected ? 'good' : 'bad';
+});
+
+(async () => {
+  const uid = await ensureAuth();
+  logLine(`signed in: ${uid.slice(0,8)}…`);
+  registerPresence('tablet');
+  watchPresence((p) => {
+    document.getElementById('dotPhone').classList.toggle('on', !!p.phone?.online);
+    document.getElementById('dotTablet').classList.toggle('on', !!p.tablet?.online);
+    document.getElementById('dotTv').classList.toggle('on', !!p.tv?.online);
+  });
+  watchActions((action) => {
+    if (!action) return;
+    const latencyMs = Date.now() - action.sentAt;
+    lastEventEl.textContent = `${action.role.toUpperCase()} → ${action.type} #${action.seq ?? ''}`;
+    latencyEl.textContent = `received ${latencyMs}ms after sent`;
+    logLine(`${action.type} #${action.seq ?? ''} — ${latencyMs}ms`);
+  });
+})();
+</script>
+</body>
+</html>

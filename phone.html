@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haarlem Hold'em — Phone</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#080c18;color:#e9e2cf;
+    font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;touch-action:none;}
+  h1{font-size:13px;letter-spacing:.08em;color:#c9a84c;text-transform:uppercase;margin:0;}
+  .sub{font-size:11px;color:#7d8299;text-align:center;max-width:280px;line-height:1.5;margin:0;}
+  #status{display:flex;gap:14px;font-size:11px;color:#7d8299;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#3a3f52;display:inline-block;margin-right:5px;}
+  .dot.on{background:#3fbf6f;}
+  #squeezeBtn{width:180px;height:180px;border-radius:50%;border:3px solid #c9a84c;background:rgba(190,22,34,0.15);
+    color:#c9a84c;font-size:14px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+    display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;}
+  #squeezeBtn:active{background:rgba(190,22,34,0.4);transform:scale(0.97);}
+  #log{width:280px;max-height:120px;overflow-y:auto;font-size:10px;color:#7d8299;
+    border-top:1px solid #1c2338;padding-top:8px;line-height:1.6;}
+  #log div{color:#c9a84c;}
+  #conn{font-size:10px;letter-spacing:.05em;text-transform:uppercase;}
+  #conn.bad{color:#BE1622;}
+  #conn.good{color:#3fbf6f;}
+</style>
+</head>
+<body>
+<h1>Phone — Player Action</h1>
+<p class="sub">Phase 1 sync test. Tap the button to send a squeeze action to the tablet and TV over Realtime Database.</p>
+<div id="conn">connecting…</div>
+<div id="status">
+  <span><span class="dot" id="dotPhone"></span>phone</span>
+  <span><span class="dot" id="dotTablet"></span>tablet</span>
+  <span><span class="dot" id="dotTv"></span>tv</span>
+</div>
+<button id="squeezeBtn">SQUEEZE<br>TO SEND</button>
+<div id="log"></div>
+
+<script type="module">
+import { ensureAuth, registerPresence, watchPresence, sendAction, watchConnection } from './firebase-config.js';
+
+const logEl = document.getElementById('log');
+const connEl = document.getElementById('conn');
+const btn = document.getElementById('squeezeBtn');
+
+function logLine(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  logEl.prepend(d);
+}
+
+watchConnection((connected) => {
+  connEl.textContent = connected ? 'connected' : 'disconnected';
+  connEl.className = connected ? 'good' : 'bad';
+});
+
+(async () => {
+  const uid = await ensureAuth();
+  logLine(`signed in: ${uid.slice(0,8)}…`);
+  registerPresence('phone');
+  watchPresence((p) => {
+    document.getElementById('dotPhone').classList.toggle('on', !!p.phone?.online);
+    document.getElementById('dotTablet').classList.toggle('on', !!p.tablet?.online);
+    document.getElementById('dotTv').classList.toggle('on', !!p.tv?.online);
+  });
+})();
+
+let seq = 0;
+btn.addEventListener('click', async () => {
+  seq += 1;
+  await sendAction('phone', 'squeeze', { seq });
+  logLine(`sent squeeze #${seq}`);
+});
+</script>
+</body>
+</html>

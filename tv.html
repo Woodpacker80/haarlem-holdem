@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haarlem Hold'em — TV</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#080c18;color:#e9e2cf;
+    font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;}
+  h1{font-size:20px;letter-spacing:.1em;color:#c9a84c;text-transform:uppercase;margin:0;}
+  .sub{font-size:13px;color:#7d8299;text-align:center;max-width:480px;line-height:1.5;margin:0;}
+  #status{display:flex;gap:22px;font-size:14px;color:#7d8299;}
+  .dot{width:11px;height:11px;border-radius:50%;background:#3a3f52;display:inline-block;margin-right:7px;}
+  .dot.on{background:#3fbf6f;}
+  #conn{font-size:12px;letter-spacing:.05em;text-transform:uppercase;}
+  #conn.bad{color:#BE1622;}
+  #conn.good{color:#3fbf6f;}
+  #jumbo{width:60vw;max-width:760px;border:3px solid #c9a84c;border-radius:20px;
+    background:rgba(190,22,34,0.08);padding:50px 30px;text-align:center;transition:transform .15s;}
+  #jumbo.pulse{transform:scale(1.03);}
+  #lastEvent{font-size:44px;color:#c9a84c;font-weight:700;letter-spacing:.05em;}
+  #latency{font-size:14px;color:#7d8299;margin-top:10px;}
+</style>
+</head>
+<body>
+<h1>TV — Jumbotron</h1>
+<p class="sub">Phase 1 sync test. Broadcasting phone actions relayed over Realtime Database.</p>
+<div id="conn">connecting…</div>
+<div id="status">
+  <span><span class="dot" id="dotPhone"></span>phone</span>
+  <span><span class="dot" id="dotTablet"></span>tablet</span>
+  <span><span class="dot" id="dotTv"></span>tv</span>
+</div>
+<div id="jumbo">
+  <div id="lastEvent">WAITING FOR PHONE…</div>
+  <div id="latency"></div>
+</div>
+
+<script type="module">
+import { ensureAuth, registerPresence, watchPresence, watchActions, watchConnection } from './firebase-config.js';
+
+const connEl = document.getElementById('conn');
+const jumbo = document.getElementById('jumbo');
+const lastEventEl = document.getElementById('lastEvent');
+const latencyEl = document.getElementById('latency');
+
+watchConnection((connected) => {
+  connEl.textContent = connected ? 'connected' : 'disconnected';
+  connEl.className = connected ? 'good' : 'bad';
+});
+
+(async () => {
+  await ensureAuth();
+  registerPresence('tv');
+  watchPresence((p) => {
+    document.getElementById('dotPhone').classList.toggle('on', !!p.phone?.online);
+    document.getElementById('dotTablet').classList.toggle('on', !!p.tablet?.online);
+    document.getElementById('dotTv').classList.toggle('on', !!p.tv?.online);
+  });
+  watchActions((action) => {
+    if (!action) return;
+    const latencyMs = Date.now() - action.sentAt;
+    lastEventEl.textContent = `${action.role.toUpperCase()} → ${action.type.toUpperCase()} #${action.seq ?? ''}`;
+    latencyEl.textContent = `received ${latencyMs}ms after sent`;
+    jumbo.classList.add('pulse');
+    setTimeout(() => jumbo.classList.remove('pulse'), 200);
+  });
+})();
+</script>
+</body>
+</html>
