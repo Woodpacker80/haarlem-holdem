@@ -52,11 +52,26 @@
     <button id="resetBtn">Reset</button>
     <button id="calibBtn">Calibrate Camera</button>
   </div>
+  <div id="cardPickers" style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+    <label style="font-size:11px;color:#7d8299;display:flex;flex-direction:column;gap:4px;align-items:center;">
+      CARD A
+      <span style="display:flex;gap:6px;">
+        <select id="rankA"></select><select id="suitA"></select>
+      </span>
+    </label>
+    <label style="font-size:11px;color:#7d8299;display:flex;flex-direction:column;gap:4px;align-items:center;">
+      CARD B
+      <span style="display:flex;gap:6px;">
+        <select id="rankB"></select><select id="suitB"></select>
+      </span>
+    </label>
+  </div>
 </div>
 <div id="calibReadout"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="card-art.js"></script>
 <script>
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x080c18);
@@ -165,63 +180,20 @@ const backTexture = makeTexture((ctx, size) => {
   ctx.lineWidth = size * 0.018;
   ctx.stroke();
 });
-// With flipY=false and UV = (x/W, z/H), UV(0,0) [the lifted corner] samples
-// canvas pixel (0,0) — i.e. the canvas TOP-LEFT. Index goes there.
-function makeFaceTexture(rank, suit, color) {
-  return makeTexture((ctx, size) => {
-    ctx.fillStyle = '#f5f1e6';
-    ctx.fillRect(0, 0, size, size);
-    const rankSize = size * 0.09, suitSize = size * 0.065;
-    const m = size * 0.008;   // practically zero — right at the physical edge of the cardstock
-    const gap = size * 0.012;  // tight spacing so rank+suit both sit in the highest-rotation zone
-
-    // Render the block normally (plain left-to-right, no transforms at
-    // all) onto an offscreen canvas — zero ambiguity about shape mirroring.
-    const off = document.createElement('canvas');
-    off.width = size; off.height = size;
-    const octx = off.getContext('2d');
-    octx.fillStyle = color;
-    octx.textAlign = 'left';
-    octx.textBaseline = 'top';
-    octx.font = `700 ${rankSize}px Georgia, serif`;
-    const rankW = octx.measureText(rank).width;
-    octx.font = `700 ${suitSize}px Georgia, serif`;
-    const suitW = octx.measureText(suit).width;
-    octx.font = `700 ${rankSize}px Georgia, serif`;
-    octx.fillText(rank, 0, 0);
-    octx.font = `700 ${suitSize}px Georgia, serif`;
-    octx.fillText(suit, rankW + gap, 0);
-    const blockW = rankW + gap + suitW;
-    const blockH = Math.max(rankSize, suitSize) * 1.15;
-
-    // Per Gemini's rule: top corners stay upright, bottom corners rotate
-    // 180°. We've only ever tested one bottom corner so far — this lets
-    // us finally see whether top corners were fine all along.
-    function stampCorner(alignRight, alignBottom) {
-      const destX = alignRight ? size - m - blockW : m;
-      const destY = alignBottom ? size - m - blockH : m;
-      ctx.save();
-      if (alignBottom) {
-        // Vertical-only flip: horizontal stays untouched (sx=1) so rank/suit
-        // order and each glyph's left-right shape are preserved — only the
-        // up/down orientation flips. Translate math recomputed for this
-        // scale, not reused from the old scale(-1,-1) offset.
-        ctx.translate(destX, destY + blockH);
-        ctx.scale(1, -1);
-        ctx.drawImage(off, 0, 0);
-      } else {
-        ctx.drawImage(off, destX, destY);
-      }
-      ctx.restore();
-    }
-    stampCorner(false, false); // top-left    (cx=0, cz=0)
-    stampCorner(true, false);  // top-right   (cx=1, cz=0)
-    stampCorner(false, true);  // bottom-left (cx=0, cz=1)
-    stampCorner(true, true);   // bottom-right(cx=1, cz=1)
-  });
+// Real card art (card-art.js) — built to this exact same corner-stamp
+// geometry (checked line-for-line against the block above before swapping):
+// same 0.8%/9%/6.5%/1.2% numbers, same vertical-only flip on the bottom
+// corners. Only the typography/color changed (Georgia/near-black ->
+// Montserrat/cobalt-burgundy), which the spec leaves open.
+function faceTextureFor(rank, suit) {
+  const canvas = CardArt.renderFace(rank, suit, 512);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.flipY = false;
+  tex.needsUpdate = true;
+  return tex;
 }
-const aceTexture = makeFaceTexture('A', '\u2660', '#1a1a1a');
-const twoTexture = makeFaceTexture('2', '\u2660', '#1a1a1a');
+let aceTexture = faceTextureFor('A', 'spades');
+let twoTexture = faceTextureFor('2', 'spades');
 
 // ---- card geometry ----
 // Local space: x in [0,W] (left->right), z in [0,H] (near/lifted -> far), y up.
@@ -255,7 +227,7 @@ function buildCurlableCard(faceTex) {
   const faceMat = new THREE.MeshBasicMaterial({ map: faceTex, side: THREE.BackSide });
   const group = new THREE.Group();
   group.add(new THREE.Mesh(geo, backMat), new THREE.Mesh(geo, faceMat));
-  return { geo, pos, baseX: bx, baseZ: bz, group };
+  return { geo, pos, baseX: bx, baseZ: bz, group, faceMat };
 }
 
 const cardA = buildCurlableCard(aceTexture); // the top/near card
@@ -385,6 +357,36 @@ slider.addEventListener('input', () => { autoDemo = false; targetPeel = slider.v
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   updateCameraFraming();
+});
+
+// ---- card-art live picker: flip through the whole deck while testing the curl ----
+function populatePicker(rankSel, suitSel, initialRank, initialSuit) {
+  CardArt.RANKS.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r; opt.textContent = r;
+    if (r === initialRank) opt.selected = true;
+    rankSel.appendChild(opt);
+  });
+  CardArt.SUIT_NAMES.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s[0].toUpperCase() + s.slice(1);
+    if (s === initialSuit) opt.selected = true;
+    suitSel.appendChild(opt);
+  });
+}
+function swapFace(card, rankSel, suitSel) {
+  const newTex = faceTextureFor(rankSel.value, suitSel.value);
+  card.faceMat.map.dispose();
+  card.faceMat.map = newTex;
+  card.faceMat.needsUpdate = true;
+}
+const rankA = document.getElementById('rankA'), suitA = document.getElementById('suitA');
+const rankB = document.getElementById('rankB'), suitB = document.getElementById('suitB');
+populatePicker(rankA, suitA, 'A', 'spades');
+populatePicker(rankB, suitB, '2', 'spades');
+[[rankA, suitA, cardA], [rankB, suitB, cardB]].forEach(([r, s, card]) => {
+  r.addEventListener('change', () => swapFace(card, r, s));
+  s.addEventListener('change', () => swapFace(card, r, s));
 });
 
 if (!calibrating) camera.lookAt(initialTarget);
