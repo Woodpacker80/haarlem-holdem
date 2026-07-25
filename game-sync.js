@@ -75,7 +75,7 @@ export function writeHoleCards(holeCardsBySeat) {
   return set(roomRef('game/holeCards'), holeCardsBySeat);
 }
 export function watchOwnHoleCards(seat, cb) {
-  onValue(roomRef(`game/holeCards/${seat}`), (snap) => cb(snap.val() || null));
+  return onValue(roomRef(`game/holeCards/${seat}`), (snap) => cb(snap.val() || null));
 }
 
 // Phones call this to REQUEST an action — they never apply it themselves.
@@ -92,6 +92,20 @@ export function watchActionQueue(cb) {
 }
 export function clearActionQueueItem(key) {
   return remove(roomRef(`game/actionQueue/${key}`));
+}
+
+// Host-only: a genuinely complete reset. Clears seats, public state, hole
+// cards, and any queued actions, so a "New Game" click can never leave
+// stale data (like leftover hole cards) sitting around for a phone to
+// accidentally display. Everyone has to rejoin/re-claim a seat afterward —
+// deliberately, so there's no ambiguity about who's playing next.
+export function clearGameState() {
+  return Promise.all([
+    remove(roomRef('game/seats')),
+    remove(roomRef('game/public')),
+    remove(roomRef('game/holeCards')),
+    remove(roomRef('game/actionQueue')),
+  ]);
 }
 
 export { ensureAuth };

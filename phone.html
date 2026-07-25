@@ -49,13 +49,51 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchPublicState, watchOwnHoleCards, requestAction } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
+let myUid = null;
+let mySeat = null;
+let latestPublicState = null;
+let wasDisconnected = false;
+
+let unsubscribeHoleCards = null;
+
+// Single place that "becomes" a given seat: updates mySeat, the on-screen
+// badge, and — importantly — re-subscribes the hole-cards listener to the
+// correct path. Without this, if a rejoin ever landed on a DIFFERENT seat
+// number than before, the old listener would keep watching the wrong path
+// forever (Firebase doesn't automatically move a subscription just because
+// a JS variable changed).
+function adoptSeat(seat) {
+  mySeat = seat;
+  document.getElementById('seatBadge').textContent = `You are Seat ${mySeat + 1}`;
+  if (unsubscribeHoleCards) unsubscribeHoleCards();
+  unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
+    document.getElementById('myHand').innerHTML = cards ? cards.map(renderCard).join('') : '<span style="color:#7d8299;font-size:12px;">waiting for the deal…</span>';
+  });
+}
+
 watchConnection((connected) => {
   connEl.textContent = connected ? 'connected' : 'disconnected';
   connEl.className = connected ? 'good' : 'bad';
+
+  // BUG FIX: a brief disconnect (screen lock, backgrounded tab, wifi blip —
+  // all common on a phone) triggers the onDisconnect cleanup that frees
+  // this seat in Firebase, so the TV correctly stops seeing this player as
+  // joined. But this phone's own `mySeat` variable never noticed — it kept
+  // showing whatever it last received, looking "stuck" on an old hand,
+  // with no way to rejoin except manually reloading the page. Re-claiming
+  // the seat the moment a REAL disconnect->reconnect happens (tracked
+  // directly, rather than guessing from a "first load" flag that could
+  // race against ensureAuth() still being in flight) closes that gap.
+  if (!connected) {
+    wasDisconnected = true;
+  } else if (wasDisconnected && myUid) {
+    wasDisconnected = false;
+    claimSeat(myUid).then((seat) => { if (seat !== null) adoptSeat(seat); });
+  }
 });
 
 function renderCard(card) {
@@ -63,20 +101,28 @@ function renderCard(card) {
   return `<span class="card${isRed ? ' red' : ''}">${card.rank}${card.suit}</span>`;
 }
 
-let mySeat = null;
-let latestPublicState = null;
-
 (async () => {
-  const uid = await ensureAuth();
-  mySeat = await claimSeat(uid);
-  if (mySeat === null) {
+  myUid = await ensureAuth();
+  const seat = await claimSeat(myUid);
+  if (seat === null) {
     document.getElementById('seatBadge').textContent = 'Room is full — could not join.';
     return;
   }
-  document.getElementById('seatBadge').textContent = `You are Seat ${mySeat + 1}`;
+  adoptSeat(seat);
 
-  watchOwnHoleCards(mySeat, (cards) => {
-    document.getElementById('myHand').innerHTML = cards ? cards.map(renderCard).join('') : '<span style="color:#7d8299;font-size:12px;">waiting for the deal…</span>';
+  // Covers a DIFFERENT case than the reconnect handling above: the host
+  // clicking "New Game / Reset" clears seats directly, with no network
+  // disconnect involved at all, so the reconnect-based re-claim never
+  // fires. Watching seats directly and noticing "my seat's gone" catches
+  // this too, so a host reset doesn't leave phones stuck needing a manual
+  // reload.
+  watchSeats((seats) => {
+    if (myUid && seats[mySeat] !== myUid) {
+      claimSeat(myUid).then((seat) => {
+        if (seat !== null) adoptSeat(seat);
+        else document.getElementById('seatBadge').textContent = 'Room is full — could not rejoin.';
+      });
+    }
   });
 
   watchPublicState((state) => {

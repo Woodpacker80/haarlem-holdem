@@ -66,7 +66,7 @@ open for the whole session.</p>
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState } from './game-sync.js';
 import { startHand, applyHandAction } from './full-hand.js';
 
 const connEl = document.getElementById('conn');
@@ -184,18 +184,19 @@ watchSeats((seats) => {
 
 document.getElementById('startBtn').addEventListener('click', dealFirstHand);
 
-// Lets the host manually reset whenever things get stuck (e.g. a phone
-// dropped mid-hand and everything's showing stale data) rather than
-// relying entirely on automatic reconnect handling. Clears the in-progress
-// game state but leaves currently-claimed seats alone, so players don't
-// have to rejoin — just hit Start Game again once ready.
+// Lets the host manually reset whenever things get stuck. Deliberately a
+// FULL reset — clears seats, hole cards, public state, and any queued
+// actions, so nothing stale (like old hole cards) can linger and get shown
+// to a phone by accident. Everyone needs to rejoin/re-claim a seat
+// afterward; that's intentional, not a shortcut left half-finished.
 document.getElementById('newGameBtn').addEventListener('click', () => {
   handState = null;
   gameConfig = null;
-  writePublicState(null);
+  clearGameState();
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupArea').style.display = 'block';
-  document.getElementById('startBtn').disabled = Object.keys(currentSeats).length < 2;
+  document.getElementById('seatList').textContent = 'Waiting for players to join…';
+  document.getElementById('startBtn').disabled = true;
 });
 
 function render() {
