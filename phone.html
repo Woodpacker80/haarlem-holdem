@@ -31,6 +31,9 @@
   #others .acting{color:#c9a84c;font-weight:700;}
   #resultBox{text-align:center;font-size:13px;color:#c9a84c;max-width:320px;}
   #error{color:#BE1622;font-size:11px;min-height:14px;}
+  #gameArea{width:100%;max-width:340px;border:1.5px solid #c9a84c;border-radius:14px;
+    background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);
+    padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;}
 </style>
 </head>
 <body>
@@ -39,12 +42,14 @@
 <div id="seatBadge">joining…</div>
 <div id="error"></div>
 
+<div id="gameArea">
 <div id="board"></div>
 <div id="info"></div>
 <div id="myHand"></div>
 <div id="actions"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
+</div>
 <div id="debug" style="font-size:9px;color:#3a3f52;max-width:340px;word-break:break-all;margin-top:20px;"></div>
 
 <script type="module">
