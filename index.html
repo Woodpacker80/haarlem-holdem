@@ -52,20 +52,6 @@
     <button id="resetBtn">Reset</button>
     <button id="calibBtn">Calibrate Camera</button>
   </div>
-  <div id="cardPickers" style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
-    <label style="font-size:11px;color:#7d8299;display:flex;flex-direction:column;gap:4px;align-items:center;">
-      CARD A
-      <span style="display:flex;gap:6px;">
-        <select id="rankA"></select><select id="suitA"></select>
-      </span>
-    </label>
-    <label style="font-size:11px;color:#7d8299;display:flex;flex-direction:column;gap:4px;align-items:center;">
-      CARD B
-      <span style="display:flex;gap:6px;">
-        <select id="rankB"></select><select id="suitB"></select>
-      </span>
-    </label>
-  </div>
 </div>
 <div id="calibReadout"></div>
 
@@ -357,36 +343,6 @@ slider.addEventListener('input', () => { autoDemo = false; targetPeel = slider.v
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   updateCameraFraming();
-});
-
-// ---- card-art live picker: flip through the whole deck while testing the curl ----
-function populatePicker(rankSel, suitSel, initialRank, initialSuit) {
-  CardArt.RANKS.forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r; opt.textContent = r;
-    if (r === initialRank) opt.selected = true;
-    rankSel.appendChild(opt);
-  });
-  CardArt.SUIT_NAMES.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s; opt.textContent = s[0].toUpperCase() + s.slice(1);
-    if (s === initialSuit) opt.selected = true;
-    suitSel.appendChild(opt);
-  });
-}
-function swapFace(card, rankSel, suitSel) {
-  const newTex = faceTextureFor(rankSel.value, suitSel.value);
-  card.faceMat.map.dispose();
-  card.faceMat.map = newTex;
-  card.faceMat.needsUpdate = true;
-}
-const rankA = document.getElementById('rankA'), suitA = document.getElementById('suitA');
-const rankB = document.getElementById('rankB'), suitB = document.getElementById('suitB');
-populatePicker(rankA, suitA, 'A', 'spades');
-populatePicker(rankB, suitB, '2', 'spades');
-[[rankA, suitA, cardA], [rankB, suitB, cardB]].forEach(([r, s, card]) => {
-  r.addEventListener('change', () => swapFace(card, r, s));
-  s.addEventListener('change', () => swapFace(card, r, s));
 });
 
 if (!calibrating) camera.lookAt(initialTarget);
