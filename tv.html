@@ -85,9 +85,9 @@
   <div id="statusLine"></div>
   <div id="actionLog"></div>
   <div id="boardArea"></div>
-  <table id="seatTable"></table>
   <div id="resultArea"></div>
-  <div id="hostControls" style="text-align:center;margin-top:14px;"></div>
+  <div id="hostControls" style="text-align:center;margin:6px 0 14px;"></div>
+  <table id="seatTable"></table>
 </div>
 
 <script src="card-art.js"></script>
@@ -119,15 +119,16 @@ let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let actionLog = [];
 function logEvent(text) {
   actionLog.push(text);
-  if (actionLog.length > 5) actionLog.shift();
+  if (actionLog.length > 2) actionLog.shift();
 }
-function formatAction(seat, action) {
+function formatAction(seat, action, resultingStack) {
   const who = `Seat ${seat + 1}`;
+  const isAllIn = resultingStack === 0 && (action.type === 'call' || action.type === 'raise');
   switch (action.type) {
     case 'fold': return `${who} folds`;
     case 'check': return `${who} checks`;
-    case 'call': return `${who} calls`;
-    case 'raise': return `${who} raises to ${action.amount}`;
+    case 'call': return isAllIn ? `${who} calls all-in` : `${who} calls`;
+    case 'raise': return isAllIn ? `${who} goes all-in` : `${who} raises to ${action.amount}`;
     default: return `${who} acts`;
   }
 }
@@ -227,7 +228,7 @@ watchActionQueue((key, request) => {
   if (!handState || handState.result) return; // no hand in progress — ignore stray requests
   try {
     handState = applyHandAction(handState, request.seat, request.action);
-    logEvent(formatAction(request.seat, request.action));
+    logEvent(formatAction(request.seat, request.action, handState.stacks[request.seat]));
     publish();
     document.getElementById('tvError').textContent = '';
   } catch (e) {
