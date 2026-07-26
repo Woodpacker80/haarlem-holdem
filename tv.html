@@ -344,8 +344,9 @@ function revealNextStep() {
 function render() {
   if (!handState) return;
   const h = handState;
-  document.getElementById('statusLine').textContent =
-    h.result ? 'Hand complete' : `Street: ${h.street} — Seat ${h.bettingRound ? h.bettingRound.actingSeat + 1 : '—'} to act`;
+  document.getElementById('statusLine').textContent = h.result
+    ? 'Hand complete'
+    : (h.bettingRound ? `It's Seat ${h.bettingRound.actingSeat + 1}'s turn` : '');
 
   const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
   const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
