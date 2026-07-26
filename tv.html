@@ -122,6 +122,7 @@ let handState = null;
 let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, bigBlindAmount }
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
+let frozenRankOrder = []; // seats sorted by standings entering the CURRENT hand — set once in startNewHand(), not recomputed live
 watchPlayerNames((names) => { playerNames = names; render(); });
 
 // Falls back to "Seat X" if that seat hasn't joined with a name yet.
@@ -267,6 +268,12 @@ function startNewHand() {
   currentStreetLabel = '';
   clearRevealTimer();
   clearVoluntaryTimer();
+  // Ranking is frozen for the whole hand, computed ONCE here from standings
+  // as they were entering this hand (before blinds) — recomputing it live
+  // during betting would mean the leaderboard/table flicker and reshuffle
+  // mid-hand as bets go back and forth, which is distracting for no real
+  // benefit. It only moves once, right when the next hand begins.
+  frozenRankOrder = [...gameConfig.activeSeats].sort((a, b) => gameConfig.stacks[b] - gameConfig.stacks[a]);
   handState = startHand({
     numSeats: Math.max(...gameConfig.activeSeats) + 1,
     activeSeats: gameConfig.activeSeats,
@@ -515,7 +522,7 @@ function render() {
   potBadge.style.display = 'block';
 
   // Leaderboard: ranked by CURRENT chip count, this session only.
-  const ranked = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
+  const ranked = frozenRankOrder;
   const medal = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
   document.getElementById('leaderboard').innerHTML = ranked.map((seat, i) =>
     `<span style="margin:0 12px;" class="${i === 0 ? 'rank1' : ''}">${medal[i] || ('#' + (i + 1))} ${seatLabel(seat)} \u2014 ${h.stacks[seat]}</span>`
@@ -537,23 +544,25 @@ function render() {
   }
   const revealCaughtUp = revealedBoardLen >= actualBoardLen && !burnAnimationPending;
 
+  const rankOf = {};
+  frozenRankOrder.forEach((s, i) => { rankOf[s] = i + 1; });
+
   const rows = h.activeSeats.map(seat => {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
-    const bet = h.bettingRound ? (h.bettingRound.bets[seat] || 0) : 0;
     const cls = folded ? 'folded' : (isActing ? 'acting' : '');
     const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
+    const rankTag = medal[rankOf[seat] - 1] || ('#' + rankOf[seat]);
     return `<tr class="${cls}">
-      <td>${seatLabel(seat)}${dealerTag}</td>
+      <td>${rankTag} ${seatLabel(seat)}${dealerTag}</td>
       <td>${cardsHtml}</td>
       <td>${h.stacks[seat]}</td>
-      <td>${bet}</td>
       <td>${folded ? 'folded' : (h.stacks[seat] === 0 ? 'all-in' : '')}</td>
     </tr>`;
   }).join('');
   document.getElementById('seatTable').innerHTML =
-    `<tr><th>Seat</th><th>Cards</th><th>Stack</th><th>Bet</th><th>Status</th></tr>${rows}`;
+    `<tr><th>Ranking</th><th>Cards</th><th>Stack</th><th>Status</th></tr>${rows}`;
 
   const resultArea = document.getElementById('resultArea');
   const hostControls = document.getElementById('hostControls');
