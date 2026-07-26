@@ -23,11 +23,36 @@ import {
 
 const MAX_SEATS = 6;
 
+// This phone's own in-flight claim, if any. See the note in claimSeat below
+// for why this exists — it's not about two different phones racing (the
+// runTransaction below already handles that correctly), it's about THIS
+// phone's own two listeners (disconnect-recovery and reset-recovery)
+// potentially both trying to claim a seat around the same moment.
+let inFlightClaim = null;
+
 // Tries to claim the lowest-numbered open seat for this device's uid, using
 // a transaction so two phones claiming at once can't both grab the same
 // seat. Returns the claimed seat index, or null if the room is full or this
 // uid already holds a seat (in which case it returns that existing seat).
-export async function claimSeat(uid) {
+//
+// REAL BUG FOUND: this phone has two separate listeners that can each call
+// claimSeat(myUid) — one reacting to a disconnect/reconnect, one reacting to
+// a host reset. If both fire close together (a reset often coincides with a
+// brief connection blip), BOTH calls could start their own "do I already
+// have a seat?" check before EITHER has written anything — so both see "no"
+// and each proceeds to independently claim a seat, landing the same uid on
+// two different seats. The transaction below correctly stops two phones
+// from grabbing the same seat, but does nothing to stop one phone's own
+// two concurrent calls from grabbing two DIFFERENT seats. Fixed by having
+// any call that arrives while one's already in flight just wait for that
+// one's result instead of racing it.
+export function claimSeat(uid) {
+  if (inFlightClaim) return inFlightClaim;
+  inFlightClaim = doClaimSeat(uid).finally(() => { inFlightClaim = null; });
+  return inFlightClaim;
+}
+
+async function doClaimSeat(uid) {
   const seatsSnap = await get(roomRef('game/seats'));
   const seats = seatsSnap.val() || {};
   for (const [seatStr, seatUid] of Object.entries(seats)) {
