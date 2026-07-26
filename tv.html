@@ -49,6 +49,9 @@
 </style>
 </head>
 <body>
+<div id="potBadge" style="display:none;position:fixed;top:14px;right:16px;color:#c9a84c;
+  font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:7px 14px;
+  border-radius:8px;border:1px solid #3a3f52;z-index:20;"></div>
 <h1>Haarlem Hold'em TV Host</h1>
 <div id="conn" style="margin-top:2px;">connecting…</div>
 <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;margin-top:6px;">
@@ -404,6 +407,7 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   document.getElementById('setupArea').style.display = 'block';
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
+  document.getElementById('potBadge').style.display = 'none';
 });
 
 // 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
@@ -425,6 +429,7 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   document.getElementById('setupArea').style.display = 'block';
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
+  document.getElementById('potBadge').style.display = 'none';
 });
 
 // Burn-card tension effect: whenever the board has grown beyond what's
@@ -489,6 +494,13 @@ function seatCardsHtml(h, seat) {
 function render() {
   if (!handState) return;
   const h = handState;
+
+  const potBadge = document.getElementById('potBadge');
+  const potNow = Object.values(h.totalBets || {}).reduce((a, b) => a + b, 0)
+               + Object.values(h.bettingRound ? h.bettingRound.bets : {}).reduce((a, b) => a + b, 0);
+  potBadge.textContent = `Pot: ${potNow}`;
+  potBadge.style.display = 'block';
+
   document.getElementById('statusLine').textContent = h.result
     ? 'Hand complete'
     : (h.bettingRound ? `It's Seat ${h.bettingRound.actingSeat + 1}'s turn` : '');
