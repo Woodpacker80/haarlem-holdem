@@ -136,6 +136,29 @@ function formatAction(seat, action, resultingStack) {
 }
 const STREET_LABEL = { flop: 'Flop', turn: 'Turn', river: 'River' };
 
+const RANK_NAME = (v) => ({ 14: 'Ace', 13: 'King', 12: 'Queen', 11: 'Jack' })[v] || String(v);
+
+// Turns a hand-eval result ({categoryName, tiebreakers}) into a readable
+// phrase for the result box, e.g. "Straight, 10 High" or "Full House,
+// Kings over Fours". Royal Flush gets called out specially — it's just the
+// Ace-high Straight Flush, not a separate category in hand-eval.js (see
+// the How to Play panel's note on this).
+function describeHand(hand) {
+  const t = hand.tiebreakers;
+  switch (hand.categoryName) {
+    case 'HIGH_CARD': return `High Card, ${RANK_NAME(t[0])} High`;
+    case 'PAIR': return `Pair of ${RANK_NAME(t[0])}s`;
+    case 'TWO_PAIR': return `Two Pair, ${RANK_NAME(t[0])}s and ${RANK_NAME(t[1])}s`;
+    case 'THREE_KIND': return `Three of a Kind, ${RANK_NAME(t[0])}s`;
+    case 'STRAIGHT': return `Straight, ${RANK_NAME(t[0])} High`;
+    case 'FLUSH': return `Flush, ${RANK_NAME(t[0])} High`;
+    case 'FULL_HOUSE': return `Full House, ${RANK_NAME(t[0])}s over ${RANK_NAME(t[1])}s`;
+    case 'FOUR_KIND': return `Four of a Kind, ${RANK_NAME(t[0])}s`;
+    case 'STRAIGHT_FLUSH': return t[0] === 14 ? 'Royal Flush' : `Straight Flush, ${RANK_NAME(t[0])} High`;
+    default: return '';
+  }
+}
+
 // Same exact card-back texture the squeeze mechanic uses (card-art.js),
 // not a hand-approximated CSS lookalike — reused as a data URL so a plain
 // <img>/background-image can show it without any Three.js/canvas setup here.
@@ -381,10 +404,17 @@ function render() {
   const resultArea = document.getElementById('resultArea');
   const hostControls = document.getElementById('hostControls');
   if (h.result && revealCaughtUp) {
+    const handBySeat = {};
+    if (h.result.ranking) {
+      h.result.ranking.forEach(group => group.forEach(({ seat, hand }) => { handBySeat[seat] = hand; }));
+    }
     const potsHtml = h.result.pots.map((p, i) => `
       <div class="potbox">
         <div class="amount">${i === 0 ? 'Main Pot' : 'Side Pot ' + i}: ${p.amount}</div>
-        <div class="eligible">Won by: ${Object.entries(h.result.payouts).filter(([,a])=>a>0).map(([s,a])=>'Seat '+(Number(s)+1)+' ('+a+')').join(', ')}</div>
+        <div class="eligible">Won by: ${Object.entries(h.result.payouts).filter(([,a])=>a>0).map(([s,a]) => {
+          const desc = handBySeat[s] ? ' with ' + describeHand(handBySeat[s]) : '';
+          return 'Seat ' + (Number(s) + 1) + ' (' + a + ')' + desc;
+        }).join(', ')}</div>
       </div>`).join('');
     resultArea.innerHTML = potsHtml;
     hostControls.innerHTML = `<button id="nextHandBtn">Deal Next Hand</button>`;
