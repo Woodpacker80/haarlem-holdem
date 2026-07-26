@@ -22,7 +22,7 @@
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
-  #actionsFoldRow{display:flex;justify-content:flex-start;}
+  #actionsFoldRow{display:flex;justify-content:space-between;align-items:center;}
   button{background:transparent;border:2px solid #c9a84c;color:#c9a84c;padding:12px 18px;
     border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
   button:hover{background:rgba(201,168,76,0.15);}
@@ -197,6 +197,7 @@ function render(state) {
 
     let topRowHtml = '';
     let customPanelHtml = '';
+    let customToggleHtml = '';
     let hasRaise = false;
     legal.forEach((type) => {
       if (type === 'raise') {
@@ -209,6 +210,7 @@ function render(state) {
         const potAfterCall = pot + toCall;
         const clamp = (n) => Math.max(minRaiseTotal, Math.min(maxRaiseTotal, Math.round(n)));
         const presets = [
+          { label: 'Min Raise', amount: minRaiseTotal },
           { label: '3x Bet', amount: clamp(state.currentBet * 3) },
           { label: '\u00bd Pot', amount: clamp(state.currentBet + potAfterCall * 0.5) },
           { label: 'Pot', amount: clamp(state.currentBet + potAfterCall) },
@@ -217,7 +219,7 @@ function render(state) {
           `<button data-type="raise" data-amount="${p.amount}">${p.label} (${p.amount})</button>`).join('');
         topRowHtml += `<button data-type="raise" data-amount="${maxRaiseTotal}">All-in (${maxRaiseTotal})</button>`;
         if (minRaiseTotal < maxRaiseTotal) { // a slider needs an actual range to be worth showing
-          topRowHtml += `<button id="customToggleBtn" type="button">Custom</button>`;
+          customToggleHtml = `<button id="customToggleBtn" type="button">Custom</button>`;
           customPanelHtml = `
             <input type="range" id="customSlider" min="${minRaiseTotal}" max="${maxRaiseTotal}" value="${minRaiseTotal}" style="width:100%;">
             <div id="customAmount" style="text-align:left;color:#c9a84c;font-weight:600;margin:4px 0;">Raise to ${minRaiseTotal}</div>
@@ -231,8 +233,8 @@ function render(state) {
         topRowHtml += `<button data-type="${type}">${label}</button>`;
       }
     });
-    const foldRowHtml = legal.includes('fold')
-      ? `<button data-type="fold" class="fold">Fold</button>` : '';
+    const foldRowHtml = (legal.includes('fold') ? `<button data-type="fold" class="fold">Fold</button>` : '')
+      + customToggleHtml;
 
     actionsEl.innerHTML = `
       <div id="actionsTop">${topRowHtml}</div>
