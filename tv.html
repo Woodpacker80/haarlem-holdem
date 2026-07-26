@@ -122,7 +122,8 @@ let handState = null;
 let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, bigBlindAmount }
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
-let frozenRankOrder = []; // seats sorted by standings entering the CURRENT hand — set once in startNewHand(), not recomputed live
+let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
+let rankingSyncedForResult = false; // whether frozenRankOrder already reflects the CURRENT hand's own result
 watchPlayerNames((names) => { playerNames = names; render(); });
 
 // Falls back to "Seat X" if that seat hasn't joined with a name yet.
@@ -273,7 +274,13 @@ function startNewHand() {
   // during betting would mean the leaderboard/table flicker and reshuffle
   // mid-hand as bets go back and forth, which is distracting for no real
   // benefit. It only moves once, right when the next hand begins.
+  // Initial ranking entering this hand — gets upgraded to this SAME hand's
+  // own final result the instant it's available (see the render() check
+  // below), so the board never lags a full hand behind on the result
+  // screen. Only needed here for the very first hand, where there's no
+  // previous result yet to have already synced from.
   frozenRankOrder = [...gameConfig.activeSeats].sort((a, b) => gameConfig.stacks[b] - gameConfig.stacks[a]);
+  rankingSyncedForResult = false;
   handState = startHand({
     numSeats: Math.max(...gameConfig.activeSeats) + 1,
     activeSeats: gameConfig.activeSeats,
@@ -515,6 +522,16 @@ function render() {
   if (!handState) return;
   const h = handState;
 
+  // Sync the ranking to THIS hand's own result the instant it's genuinely
+  // visible (board animation caught up) — must happen before anything else
+  // in this function reads frozenRankOrder, or the leaderboard would still
+  // show the PREVIOUS hand's standings for one extra render pass.
+  const revealCaughtUp = h.board.length <= revealedBoardLen && !burnAnimationPending;
+  if (h.result && revealCaughtUp && !rankingSyncedForResult) {
+    frozenRankOrder = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
+    rankingSyncedForResult = true;
+  }
+
   const potBadge = document.getElementById('potBadge');
   const potNow = Object.values(h.totalBets || {}).reduce((a, b) => a + b, 0)
                + Object.values(h.bettingRound ? h.bettingRound.bets : {}).reduce((a, b) => a + b, 0);
@@ -542,7 +559,6 @@ function render() {
   } else if (!burnAnimationPending) {
     document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('') || '<span style="color:#7d8299;">(pre-flop)</span>';
   }
-  const revealCaughtUp = revealedBoardLen >= actualBoardLen && !burnAnimationPending;
 
   const rankOf = {};
   frozenRankOrder.forEach((s, i) => { rankOf[s] = i + 1; });
@@ -553,7 +569,7 @@ function render() {
     const cls = folded ? 'folded' : (isActing ? 'acting' : '');
     const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
-    const rankTag = medal[rankOf[seat] - 1] || ('#' + rankOf[seat]);
+    const rankTag = '#' + rankOf[seat];
     return `<tr class="${cls}">
       <td>${rankTag} ${seatLabel(seat)}${dealerTag}</td>
       <td>${cardsHtml}</td>
