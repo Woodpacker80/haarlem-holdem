@@ -102,7 +102,7 @@
 <script src="card-art.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames } from './game-sync.js';
 import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
 
 const connEl = document.getElementById('conn');
@@ -121,6 +121,13 @@ function renderCard(card) {
 let handState = null;
 let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, bigBlindAmount }
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
+let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
+watchPlayerNames((names) => { playerNames = names; render(); });
+
+// Falls back to "Seat X" if that seat hasn't joined with a name yet.
+function seatLabel(seat) {
+  return (playerNames[seat] && playerNames[seat].display) || `Seat ${seat + 1}`;
+}
 // Rolling feed of what's happened this hand: actions and street reveals.
 // Reset per hand in startNewHand(). Kept short (last few entries) — this is
 // meant to be glanced at, not a full transcript.
@@ -131,7 +138,7 @@ function logEvent(text) {
   if (actionLog.length > 2) actionLog.shift();
 }
 function formatAction(seat, action, resultingStack) {
-  const who = `Seat ${seat + 1}`;
+  const who = seatLabel(seat);
   const isAllIn = resultingStack === 0 && (action.type === 'call' || action.type === 'raise');
   switch (action.type) {
     case 'fold': return `${who} Folds`;
@@ -295,14 +302,14 @@ function applyReveal(seat, decision) {
   if (!pending) return; // already resolved (e.g. timer fired after a real decision beat it)
   const handInfo = pending.ranking.flatMap(g => g).find(e => e.seat === seat);
   handState = applyRevealDecision(handState, seat, decision);
-  logEvent(decision === 'show' && handInfo ? `Seat ${seat + 1} shows ${describeHand(handInfo.hand)}` : `Seat ${seat + 1} mucks`);
+  logEvent(decision === 'show' && handInfo ? `${seatLabel(seat)} shows ${describeHand(handInfo.hand)}` : `${seatLabel(seat)} mucks`);
   clearRevealTimer();
   publish();
 }
 function applyVoluntaryReveal(seat, decision) {
   if (!handState.pendingVoluntaryShow || handState.pendingVoluntaryShow.decided) return;
   handState = applyVoluntaryShowDecision(handState, seat, decision);
-  if (decision === 'show') logEvent(`Seat ${seat + 1} shows their hand`);
+  if (decision === 'show') logEvent(`${seatLabel(seat)} shows their hand`);
   clearVoluntaryTimer();
   publish();
 }
@@ -377,7 +384,7 @@ watchSeats((seats) => {
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([seatStr, uid]) => `
         <span style="display:inline-flex;align-items:center;gap:6px;margin:0 10px;">
-          Seat ${Number(seatStr) + 1}
+          ${seatLabel(Number(seatStr))}
           <button class="kickBtn" data-seat="${seatStr}" data-uid="${uid}"
             style="font-size:11px;padding:3px 8px;">Kick</button>
         </span>`).join('');
@@ -511,12 +518,12 @@ function render() {
   const ranked = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
   const medal = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
   document.getElementById('leaderboard').innerHTML = ranked.map((seat, i) =>
-    `<span style="margin:0 12px;" class="${i === 0 ? 'rank1' : ''}">${medal[i] || ('#' + (i + 1))} Seat ${seat + 1} \u2014 ${h.stacks[seat]}</span>`
+    `<span style="margin:0 12px;" class="${i === 0 ? 'rank1' : ''}">${medal[i] || ('#' + (i + 1))} ${seatLabel(seat)} \u2014 ${h.stacks[seat]}</span>`
   ).join('');
 
   document.getElementById('statusLine').textContent = h.result
     ? 'Hand complete'
-    : (h.bettingRound ? `It's Seat ${h.bettingRound.actingSeat + 1}'s turn` : '');
+    : (h.bettingRound ? `It's ${seatLabel(h.bettingRound.actingSeat)}'s turn` : '');
 
   const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
   const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
@@ -538,7 +545,7 @@ function render() {
     const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
     return `<tr class="${cls}">
-      <td>Seat ${seat + 1}${dealerTag}</td>
+      <td>${seatLabel(seat)}${dealerTag}</td>
       <td>${cardsHtml}</td>
       <td>${h.stacks[seat]}</td>
       <td>${bet}</td>
@@ -554,13 +561,13 @@ function render() {
     ensureRevealTimer();
     const pending = h.pendingReveal;
     const seat = pending.order[pending.currentIndex];
-    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on Seat ${seat + 1} to show or muck\u2026</div>
-      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (Seat ${seat + 1})</button></div>`;
+    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on ${seatLabel(seat)} to show or muck\u2026</div>
+      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (${seatLabel(seat)})</button></div>`;
     document.getElementById('forceMuckBtn').addEventListener('click', () => applyReveal(seat, 'muck'));
     hostControls.innerHTML = '';
   } else if (h.pendingVoluntaryShow && !h.pendingVoluntaryShow.decided && revealCaughtUp) {
     ensureVoluntaryTimer();
-    resultArea.innerHTML = `<div style="color:#7d8299;">Seat ${h.pendingVoluntaryShow.seat + 1} can choose to reveal their hand\u2026</div>`;
+    resultArea.innerHTML = `<div style="color:#7d8299;">${seatLabel(h.pendingVoluntaryShow.seat)} can choose to reveal their hand\u2026</div>`;
     hostControls.innerHTML = `<button id="nextHandBtn">Deal Next Hand</button>`;
     document.getElementById('nextHandBtn').addEventListener('click', dealNextHand);
   } else if (h.result && revealCaughtUp) {
@@ -573,7 +580,7 @@ function render() {
         <div class="amount">${i === 0 ? 'Main Pot' : 'Side Pot ' + i}: ${p.amount}</div>
         <div class="eligible">Won by: ${Object.entries(h.result.payouts).filter(([,a])=>a>0).map(([s,a]) => {
           const desc = handBySeat[s] ? ' with ' + describeHand(handBySeat[s]) : '';
-          return 'Seat ' + (Number(s) + 1) + ' (' + a + ')' + desc;
+          return seatLabel(Number(s)) + ' (' + a + ')' + desc;
         }).join(', ')}</div>
       </div>`).join('');
     resultArea.innerHTML = potsHtml;

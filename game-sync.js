@@ -116,6 +116,50 @@ export function watchSeats(cb) {
   onValue(roomRef('game/seats'), (snap) => cb(snap.val() || {}));
 }
 
+// Player names, keyed by seat — separate from game/seats (uid ownership) and
+// game/public (per-hand state), since a name belongs to the SESSION, not to
+// any one hand, and shouldn't get wiped by Quit Game / Start New Game.
+//
+// Each entry is { base, display }: `base` is exactly what the player typed
+// (used to detect future collisions), `display` is what's actually shown —
+// identical to `base` unless there's a duplicate, in which case BOTH the
+// original joiner and the new one get a letter suffix (first "Mark" becomes
+// "Mark A", second becomes "Mark B", a third "Mark" later becomes "Mark C",
+// and so on). This has to live here rather than in phone.html because
+// assigning a letter means looking at (and sometimes rewriting) every OTHER
+// seat's name too, not just the one joining.
+export async function claimName(seat, rawName) {
+  const base = rawName.trim();
+  const namesSnap = await get(roomRef('game/playerNames'));
+  const names = namesSnap.val() || {};
+  const matches = Object.entries(names).filter(([s, v]) =>
+    Number(s) !== seat && v && v.base && v.base.toLowerCase() === base.toLowerCase());
+
+  if (matches.length === 0) {
+    await set(roomRef(`game/playerNames/${seat}`), { base, display: base });
+    return;
+  }
+
+  const usedLetters = matches
+    .map(([, v]) => v.display.slice(base.length).trim())
+    .filter((suffix) => /^[A-Z]$/.test(suffix));
+
+  let letterIndex = usedLetters.length; // e.g. "A" and "B" already used -> this one is "C"
+  if (usedLetters.length === 0) {
+    // First-ever collision for this name — relabel the ORIGINAL joiner to
+    // "A" too, retroactively, since up to now they were shown with no
+    // suffix at all.
+    const [firstSeat] = matches[0];
+    await set(roomRef(`game/playerNames/${firstSeat}`), { base, display: `${base} A` });
+    letterIndex = 1; // this new one becomes "B"
+  }
+  const letter = String.fromCharCode(65 + letterIndex);
+  await set(roomRef(`game/playerNames/${seat}`), { base, display: `${base} ${letter}` });
+}
+export function watchPlayerNames(cb) {
+  onValue(roomRef('game/playerNames'), (snap) => cb(snap.val() || {}));
+}
+
 // Public game state: everything except hole cards (board, street, whose
 // turn, stacks, bets, folded/all-in status, dealer seat, result). Every
 // screen reads this the same way.

@@ -44,7 +44,15 @@
 <div id="seatBadge">joining…</div>
 <div id="error"></div>
 
-<div id="gameArea">
+<div id="nameGate" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:20px;">
+  <div style="color:#c9a84c;font-size:14px;">What's your name?</div>
+  <input id="nameInput" type="text" maxlength="8" placeholder="Name"
+    style="font-size:16px;padding:10px 14px;border-radius:8px;border:1px solid #c9a84c;
+    background:#0d1626;color:#e9e2cf;width:180px;text-align:center;">
+  <button id="joinBtn" type="button">Join Table</button>
+</div>
+
+<div id="gameArea" style="display:none;">
 <div id="board"></div>
 <div id="info"></div>
 <div id="myHand"></div>
@@ -56,7 +64,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -109,14 +117,26 @@ function renderCard(card) {
   return `<span class="card${isRed ? ' red' : ''}">${card.rank}${card.suit}</span>`;
 }
 
-(async () => {
-  myUid = await ensureAuth();
-  await releaseStaleLocalSeat(myUid);
+// Auth can resolve independently of the name gate — no reason to make
+// someone wait to see the name field just because Firebase is still
+// signing them in.
+(async () => { myUid = await ensureAuth(); await releaseStaleLocalSeat(myUid); })();
+
+document.getElementById('joinBtn').addEventListener('click', async () => {
+  const nameInput = document.getElementById('nameInput');
+  const name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; } // no empty names allowed past this point
+  document.getElementById('nameGate').style.display = 'none';
+  document.getElementById('gameArea').style.display = 'flex';
+  document.getElementById('seatBadge').textContent = 'joining…';
+
+  if (!myUid) myUid = await ensureAuth(); // in case the gate was submitted before auth resolved
   const seat = await claimSeat(myUid);
   if (seat === null) {
     document.getElementById('seatBadge').textContent = 'Room is full — could not join.';
     return;
   }
+  await claimName(seat, name); // no renaming after this — name is locked in for the session
   adoptSeat(seat);
 
   // Covers a DIFFERENT case than the reconnect handling above: the host
@@ -144,7 +164,7 @@ function renderCard(card) {
       console.error(e);
     }
   });
-})();
+});
 
 function render(state) {
   const errorEl = document.getElementById('error');
