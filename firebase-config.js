@@ -3,7 +3,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, signInAnonymously, onAuthStateChanged
+  getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getDatabase, ref, set, push, onValue, onChildAdded,
@@ -32,8 +32,20 @@ export function roomRef(path = "") {
 }
 
 // Signs this device in anonymously and resolves with the uid.
+//
+// Explicitly requesting browserLocalPersistence (rather than trusting
+// whatever the SDK defaults to) guards against a real footgun: on some
+// mobile browsers/WebViews, persisted-session rehydration on reload can be
+// slow enough that onAuthStateChanged fires with `null` first, which then
+// triggers signInAnonymously() and mints a BRAND NEW uid — silently
+// orphaning the old one (and its claimed seat) even though the old session
+// still existed. This doesn't fully eliminate the race, but removes one
+// common cause of it.
 export function ensureAuth() {
   return new Promise((resolve) => {
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.error("Failed to set auth persistence:", err);
+    });
     onAuthStateChanged(auth, (user) => {
       if (user) { resolve(user.uid); return; }
       signInAnonymously(auth).catch((err) => console.error("Anon auth failed:", err));

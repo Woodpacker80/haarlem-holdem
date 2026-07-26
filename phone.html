@@ -54,7 +54,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -73,6 +73,7 @@ let unsubscribeHoleCards = null;
 // a JS variable changed).
 function adoptSeat(seat) {
   mySeat = seat;
+  rememberLocalSeat(myUid, seat);
   document.getElementById('seatBadge').textContent = `You are Seat ${mySeat + 1}`;
   if (unsubscribeHoleCards) unsubscribeHoleCards();
   unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
@@ -108,6 +109,7 @@ function renderCard(card) {
 
 (async () => {
   myUid = await ensureAuth();
+  await releaseStaleLocalSeat(myUid);
   const seat = await claimSeat(myUid);
   if (seat === null) {
     document.getElementById('seatBadge').textContent = 'Room is full — could not join.';

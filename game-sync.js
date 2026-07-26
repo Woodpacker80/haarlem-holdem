@@ -56,6 +56,34 @@ function onDisconnectClearSeat(seatIndex) {
   onDisconnect(roomRef(`game/seats/${seatIndex}`)).remove();
 }
 
+const LS_UID_KEY = 'hh_last_uid';
+const LS_SEAT_KEY = 'hh_last_seat';
+
+// Safety net for the "one phone, two seats" bug: if THIS browser somehow
+// comes back with a different uid than last time (see the persistence note
+// in firebase-config.js), the old uid's seat can sit occupied until
+// Firebase's own disconnect-detection notices it's gone — which can take
+// up to a minute. This uses plain localStorage (independent of whatever
+// Firebase Auth's own persistence is doing) to remember this browser's own
+// last (uid, seat) and proactively frees it the moment a mismatch is
+// noticed, rather than waiting on the server to catch up.
+export async function releaseStaleLocalSeat(currentUid) {
+  const lastUid = localStorage.getItem(LS_UID_KEY);
+  const lastSeat = localStorage.getItem(LS_SEAT_KEY);
+  if (lastUid && lastSeat !== null && lastUid !== currentUid) {
+    const seatRef = roomRef(`game/seats/${lastSeat}`);
+    const snap = await get(seatRef);
+    if (snap.val() === lastUid) {
+      await remove(seatRef);
+    }
+  }
+}
+
+export function rememberLocalSeat(uid, seat) {
+  localStorage.setItem(LS_UID_KEY, uid);
+  localStorage.setItem(LS_SEAT_KEY, String(seat));
+}
+
 export function watchSeats(cb) {
   onValue(roomRef('game/seats'), (snap) => cb(snap.val() || {}));
 }
