@@ -20,7 +20,9 @@
   #myHand{text-align:center;}
   #myHand .card{font-size:22px;padding:8px 12px;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
-  #actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
+  #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
+  #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
+  #actionsFoldRow{display:flex;justify-content:flex-start;}
   button{background:transparent;border:2px solid #c9a84c;color:#c9a84c;padding:12px 18px;
     border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
   button:hover{background:rgba(201,168,76,0.15);}
@@ -192,15 +194,72 @@ function render(state) {
       bets: state.bets, stacks: state.stacks, currentBet: state.currentBet, minRaiseAmount: state.minRaiseAmount,
     };
     const { legal, toCall, minRaiseTotal, maxRaiseTotal } = getLegalActions(fakeBettingRoundState, mySeat);
-    actionsEl.innerHTML = legal.map(type => {
+
+    let topRowHtml = '';
+    let customPanelHtml = '';
+    let hasRaise = false;
+    legal.forEach((type) => {
       if (type === 'raise') {
-        return `<button data-type="raise" data-amount="${minRaiseTotal}">Raise to ${minRaiseTotal}</button>
-                <button data-type="raise" data-amount="${maxRaiseTotal}">All-in (${maxRaiseTotal})</button>`;
+        hasRaise = true;
+        // Real pot size right now = everything already committed in earlier
+        // completed streets (state.totalBets) + this round's bets so far —
+        // there's no single "pot" field, it has to be derived from both.
+        const pot = Object.values(state.totalBets || {}).reduce((a, b) => a + b, 0)
+                  + Object.values(state.bets || {}).reduce((a, b) => a + b, 0);
+        const potAfterCall = pot + toCall;
+        const clamp = (n) => Math.max(minRaiseTotal, Math.min(maxRaiseTotal, Math.round(n)));
+        const presets = [
+          { label: '3x Bet', amount: clamp(state.currentBet * 3) },
+          { label: '\u00bd Pot', amount: clamp(state.currentBet + potAfterCall * 0.5) },
+          { label: 'Pot', amount: clamp(state.currentBet + potAfterCall) },
+        ].filter(p => p.amount < maxRaiseTotal); // don't duplicate the All-in button below
+        topRowHtml += presets.map(p =>
+          `<button data-type="raise" data-amount="${p.amount}">${p.label} (${p.amount})</button>`).join('');
+        topRowHtml += `<button data-type="raise" data-amount="${maxRaiseTotal}">All-in (${maxRaiseTotal})</button>`;
+        if (minRaiseTotal < maxRaiseTotal) { // a slider needs an actual range to be worth showing
+          topRowHtml += `<button id="customToggleBtn" type="button">Custom</button>`;
+          customPanelHtml = `
+            <input type="range" id="customSlider" min="${minRaiseTotal}" max="${maxRaiseTotal}" value="${minRaiseTotal}" style="width:100%;">
+            <div id="customAmount" style="text-align:center;color:#c9a84c;font-weight:600;margin:4px 0;">Raise to ${minRaiseTotal}</div>
+            <div style="display:flex;justify-content:center;gap:10px;">
+              <button data-type="raise" data-amount="${minRaiseTotal}" id="customConfirmBtn">Confirm</button>
+              <button type="button" id="customCancelBtn">Cancel</button>
+            </div>`;
+        }
+      } else if (type !== 'fold') {
+        const label = type === 'call' ? `Call ${toCall}` : type[0].toUpperCase() + type.slice(1);
+        topRowHtml += `<button data-type="${type}">${label}</button>`;
       }
-      const label = type === 'call' ? `Call ${toCall}` : type[0].toUpperCase() + type.slice(1);
-      return `<button data-type="${type}"${type === 'fold' ? ' class="fold"' : ''}>${label}</button>`;
-    }).join('');
-    actionsEl.querySelectorAll('button').forEach(btn => {
+    });
+    const foldRowHtml = legal.includes('fold')
+      ? `<button data-type="fold" class="fold">Fold</button>` : '';
+
+    actionsEl.innerHTML = `
+      <div id="actionsTop">${topRowHtml}</div>
+      <div id="customPanel" style="display:none;width:100%;">${customPanelHtml}</div>
+      <div id="actionsFoldRow">${foldRowHtml}</div>`;
+
+    if (hasRaise && document.getElementById('customToggleBtn')) {
+      const topEl = document.getElementById('actionsTop');
+      const panelEl = document.getElementById('customPanel');
+      document.getElementById('customToggleBtn').addEventListener('click', () => {
+        topEl.style.display = 'none';
+        panelEl.style.display = 'block';
+      });
+      document.getElementById('customCancelBtn').addEventListener('click', () => {
+        panelEl.style.display = 'none';
+        topEl.style.display = 'flex';
+      });
+      const slider = document.getElementById('customSlider');
+      const amountLabel = document.getElementById('customAmount');
+      const confirmBtn = document.getElementById('customConfirmBtn');
+      slider.addEventListener('input', () => {
+        amountLabel.textContent = `Raise to ${slider.value}`;
+        confirmBtn.dataset.amount = slider.value;
+      });
+    }
+
+    actionsEl.querySelectorAll('button[data-type]').forEach(btn => {
       btn.addEventListener('click', () => {
         const type = btn.dataset.type;
         const action = type === 'raise' ? { type, amount: Number(btn.dataset.amount) } : { type };
@@ -215,7 +274,10 @@ function render(state) {
 
   document.getElementById('resultBox').textContent = state.result
     ? (state.result.uncontested
-        ? `Seat ${Object.entries(state.result.payouts).find(([,a]) => a > 0)[0] * 1 + 1} wins uncontested.`
+        ? (() => {
+            const winnerEntry = Object.entries(state.result.payouts).find(([, a]) => a > 0);
+            return winnerEntry ? `Seat ${Number(winnerEntry[0]) + 1} wins uncontested.` : 'Hand complete.';
+          })()
         : 'Showdown — see the TV for full results.')
     : '';
 }

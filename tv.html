@@ -180,6 +180,7 @@ function publicStateFrom(h) {
     foldedSeats: h.foldedSeats,
     stacks: h.stacks,
     bets: h.bettingRound ? h.bettingRound.bets : {},
+    totalBets: h.totalBets, // + current round's bets = the real current pot, for bet-sizing presets
     actingSeat: h.bettingRound ? h.bettingRound.actingSeat : null,
     currentBet: h.bettingRound ? h.bettingRound.currentBet : 0,
     minRaiseAmount: h.bettingRound ? h.bettingRound.minRaiseAmount : 0,
