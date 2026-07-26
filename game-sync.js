@@ -53,6 +53,9 @@ export function claimSeat(uid) {
 }
 
 async function doClaimSeat(uid) {
+  const bannedSnap = await get(roomRef(`game/banned/${uid}`));
+  if (bannedSnap.val()) return null; // host kicked this device — no auto-rejoin
+
   const seatsSnap = await get(roomRef('game/seats'));
   const seats = seatsSnap.val() || {};
   for (const [seatStr, seatUid] of Object.entries(seats)) {
@@ -147,11 +150,31 @@ export function clearActionQueueItem(key) {
   return remove(roomRef(`game/actionQueue/${key}`));
 }
 
+// Host (TV) only: kicks whoever's in a seat AND bans their uid, so their
+// phone's own auto-rejoin (which exists specifically to survive a reset
+// smoothly) can't just grab a seat straight back. This is the fix for: a
+// forgotten open tab silently re-claiming a seat every time the host tries
+// to start a fresh game.
+export function kickSeat(uid, seatIndex) {
+  return Promise.all([
+    set(roomRef(`game/banned/${uid}`), true),
+    remove(roomRef(`game/seats/${seatIndex}`)),
+  ]);
+}
+
+// Host-only: lifts all kicks. Bans deliberately survive New Game/Reset (see
+// clearGameState below) since the whole point is to keep a kicked phone out
+// through a reset — so this is a separate, explicit action.
+export function clearBans() {
+  return remove(roomRef('game/banned'));
+}
+
 // Host-only: a genuinely complete reset. Clears seats, public state, hole
 // cards, and any queued actions, so a "New Game" click can never leave
 // stale data (like leftover hole cards) sitting around for a phone to
 // accidentally display. Everyone has to rejoin/re-claim a seat afterward —
 // deliberately, so there's no ambiguity about who's playing next.
+// Deliberately does NOT clear game/banned — see kickSeat/clearBans above.
 export function clearGameState() {
   return Promise.all([
     remove(roomRef('game/seats')),
