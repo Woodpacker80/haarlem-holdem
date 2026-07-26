@@ -32,14 +32,15 @@
     padding:5px 9px;margin:2px;font-weight:700;font-size:18px;min-width:34px;text-align:center;}
   .card.red{color:#BE1622;}
   .burnCard{display:inline-block;border-radius:6px;
-    margin:2px;min-width:34px;height:26px;background-size:cover;background-position:center;
+    padding:5px 9px;margin:2px;font-weight:700;font-size:18px;min-width:34px;text-align:center;
+    background-size:cover;background-position:center;color:transparent;
     animation:burnPulse 1.1s ease-in-out infinite;}
   @keyframes burnPulse{0%,100%{opacity:0.65;}50%{opacity:1;}}
   #boardArea{text-align:center;margin-bottom:16px;min-height:50px;}
   #statusLine{font-size:15px;color:#c9a84c;text-align:center;margin-bottom:14px;}
-  #actionLog{max-width:520px;margin:0 auto 14px;font-size:13px;color:#7d8299;text-align:center;
-    min-height:18px;line-height:1.6;}
-  #actionLog .latest{color:#e9e2cf;font-weight:600;}
+  #actionLog{max-width:560px;margin:0 auto 14px;font-size:13px;color:#c9c4b0;
+    min-height:18px;line-height:1.6;display:flex;align-items:center;justify-content:center;gap:18px;}
+  #actionLog .streetLabel{color:#c9a84c;font-weight:600;}
   .potbox{border:1px solid #3a3f52;border-radius:8px;padding:10px 16px;margin-bottom:8px;}
   .potbox .amount{color:#c9a84c;font-weight:700;font-size:15px;}
   .potbox .eligible{font-size:12px;color:#7d8299;}
@@ -117,6 +118,7 @@ let currentSeats = {}; // seatIndex -> uid, from watchSeats
 // Reset per hand in startNewHand(). Kept short (last few entries) — this is
 // meant to be glanced at, not a full transcript.
 let actionLog = [];
+let currentStreetLabel = '';
 function logEvent(text) {
   actionLog.push(text);
   if (actionLog.length > 2) actionLog.shift();
@@ -125,14 +127,14 @@ function formatAction(seat, action, resultingStack) {
   const who = `Seat ${seat + 1}`;
   const isAllIn = resultingStack === 0 && (action.type === 'call' || action.type === 'raise');
   switch (action.type) {
-    case 'fold': return `${who} folds`;
-    case 'check': return `${who} checks`;
-    case 'call': return isAllIn ? `${who} calls all-in` : `${who} calls`;
-    case 'raise': return isAllIn ? `${who} goes all-in` : `${who} raises to ${action.amount}`;
-    default: return `${who} acts`;
+    case 'fold': return `${who} Folds`;
+    case 'check': return `${who} Checks`;
+    case 'call': return isAllIn ? `${who} Calls All-in` : `${who} Calls`;
+    case 'raise': return isAllIn ? `${who} Raises All-in` : `${who} Raises to ${action.amount}`;
+    default: return `${who} Acts`;
   }
 }
-const STREET_LABEL = { flop: 'THE FLOP', turn: 'THE TURN', river: 'THE RIVER' };
+const STREET_LABEL = { flop: 'Flop', turn: 'Turn', river: 'River' };
 
 // Same exact card-back texture the squeeze mechanic uses (card-art.js),
 // not a hand-approximated CSS lookalike — reused as a data URL so a plain
@@ -195,6 +197,7 @@ function startNewHand() {
   revealedBoardLen = 0;
   burnAnimationPending = false;
   actionLog = [];
+  currentStreetLabel = '';
   handState = startHand({
     numSeats: Math.max(...gameConfig.activeSeats) + 1,
     activeSeats: gameConfig.activeSeats,
@@ -320,7 +323,7 @@ function revealNextStep() {
   if (revealedBoardLen >= actualBoardLen) { burnAnimationPending = false; return; }
   burnAnimationPending = true;
   const alreadyShown = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
-  document.getElementById('boardArea').innerHTML = alreadyShown + `<span class="burnCard" style="background-image:url(${burnCardBackUrl})"></span>`;
+  document.getElementById('boardArea').innerHTML = alreadyShown + `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10♠</span>`;
   // First reveal is the flop (3 cards at once); every reveal after that is
   // exactly one card (turn, then river) — matches real street sizes.
   const stepTarget = revealedBoardLen === 0 ? Math.min(3, actualBoardLen) : Math.min(revealedBoardLen + 1, actualBoardLen);
@@ -328,7 +331,7 @@ function revealNextStep() {
     revealedBoardLen = stepTarget;
     document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
     const streetJustShown = stepTarget === 3 ? 'flop' : stepTarget === 4 ? 'turn' : stepTarget === 5 ? 'river' : null;
-    if (streetJustShown) logEvent(`— ${STREET_LABEL[streetJustShown]} —`);
+    if (streetJustShown) currentStreetLabel = STREET_LABEL[streetJustShown];
     render();
     if (revealedBoardLen < actualBoardLen) {
       setTimeout(revealNextStep, 550); // brief beat before burning the next one
@@ -344,9 +347,9 @@ function render() {
   document.getElementById('statusLine').textContent =
     h.result ? 'Hand complete' : `Street: ${h.street} — Seat ${h.bettingRound ? h.bettingRound.actingSeat + 1 : '—'} to act`;
 
-  document.getElementById('actionLog').innerHTML = actionLog
-    .map((entry, i) => i === actionLog.length - 1 ? `<span class="latest">${entry}</span>` : entry)
-    .join(' &nbsp;•&nbsp; ');
+  const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
+  const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
+  document.getElementById('actionLog').innerHTML = actionsHtml + streetHtml;
 
   const actualBoardLen = h.board.length;
   if (actualBoardLen > revealedBoardLen && !burnAnimationPending) {
