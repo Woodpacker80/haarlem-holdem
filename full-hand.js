@@ -53,10 +53,13 @@ export function startHand({ numSeats, activeSeats, stacks, dealerSeat, smallBlin
     foldedSeats: [],
     totalBets: { ...bets }, // accumulates across ALL streets, for pot calculation at the end
     stacks: workingStacks,
+    lastAggressorThisStreet: null, // who last bet/raise this street — decides who shows first at showdown
     bettingRound: initBettingRound({
       numSeats, activeSeats, stacks: workingStacks, firstToAct, minRaiseAmount: bigBlindAmount, bets,
     }),
     result: null, // filled in once the hand ends
+    pendingReveal: null, // filled in during a non-all-in showdown's turn-based reveal
+    pendingVoluntaryShow: null, // filled in after an uncontested win, for the optional "show your bluff" moment
   };
 }
 
@@ -81,6 +84,10 @@ export function applyHandAction(state, seat, action) {
   if (state.result) throw new Error('This hand is already complete.');
 
   let bettingRound = applyAction(state.bettingRound, seat, action);
+  // Official showdown rule: the last player to bet/raise THIS street must
+  // show their hand first (see the note above goToShowdown). Only tracked
+  // per-street — reset to null whenever a new street's betting round starts.
+  const lastAggressorThisStreet = action.type === 'raise' ? seat : state.lastAggressorThisStreet;
   // BUG FIX: this used to be `stacks: bettingRound.stacks`, which REPLACED
   // the whole-hand stacks object with the current betting round's version.
   // A betting round only tracks seats that are actually in it — once
@@ -90,7 +97,7 @@ export function applyHandAction(state, seat, action) {
   // hand's state (they'd show up as 0 chips at showdown), rather than just
   // freezing at whatever they had when they folded. Merging instead of
   // replacing keeps every seat's most recent known stack.
-  let next = { ...state, bettingRound, stacks: { ...state.stacks, ...bettingRound.stacks } };
+  let next = { ...state, bettingRound, stacks: { ...state.stacks, ...bettingRound.stacks }, lastAggressorThisStreet };
 
   if (action.type === 'fold') {
     next.foldedSeats = [...state.foldedSeats, seat];
@@ -156,6 +163,7 @@ function advanceAfterRoundComplete(state) {
   let dealt = state;
   const nextStreet = STREETS[streetIndex + 1];
   dealt = dealNextStreet(dealt, nextStreet);
+  dealt.lastAggressorThisStreet = null; // fresh street, no aggressor yet
 
   if (noMoreBettingPossible) {
     // Keep dealing streets with no betting until we reach the river, then showdown.
@@ -194,6 +202,14 @@ function findFirstContenderToAct(state, dealerSeat) {
   return null; // no one can act (shouldn't happen if caller already checked noMoreBettingPossible)
 }
 
+// Official rule (Robert's Rules of Poker / WSOP): the last player to bet or
+// raise on the final betting round must show first; if everyone checked,
+// the first active seat left of the dealer shows first. Everyone else then
+// decides show/muck in turn order after that. EXCEPTION: if the showdown
+// involves anyone all-in, tournaments (WSOP included) require everyone to
+// show — no mucking at all. That's the ALREADY-EXISTING behavior below
+// (immediate full reveal), so only the non-all-in case gets the new
+// turn-based reveal phase.
 function goToShowdown(state) {
   let dealt = state;
   // Deal any remaining board cards if we somehow reached here without them
@@ -206,7 +222,54 @@ function goToShowdown(state) {
   const inHand = seatsStillInHand(dealt);
   const players = inHand.map(seat => ({ seat, holeCards: dealt.holeCards[seat] }));
   const ranking = rankHands(players, dealt.board);
-  return finishHand(dealt, { uncontested: false, ranking });
+
+  if (allInSeats(dealt).length > 0) {
+    return finishHand(dealt, { uncontested: false, ranking });
+  }
+
+  const forcedShower = (dealt.lastAggressorThisStreet !== null && inHand.includes(dealt.lastAggressorThisStreet))
+    ? dealt.lastAggressorThisStreet
+    : firstToActPostflop(dealt.dealerSeat, dealt.numSeats, inHand);
+  const order = [forcedShower];
+  let seat = forcedShower;
+  for (let i = 1; i < inHand.length; i++) {
+    seat = nextToAct(seat, dealt.numSeats, inHand);
+    order.push(seat);
+  }
+
+  return {
+    ...dealt,
+    pendingReveal: { order, currentIndex: 1, decisions: { [forcedShower]: 'shown' }, ranking },
+    result: null,
+  };
+}
+
+// Called when it's a seat's turn to Show or Muck during a non-all-in
+// showdown's reveal phase (see goToShowdown above). Once everyone in the
+// order has decided, awards the pot(s) using ONLY the shown hands — a
+// mucked hand is dead and can never win, even if it was actually best.
+export function applyRevealDecision(state, seat, decision) {
+  if (!state.pendingReveal) throw new Error('No reveal is in progress.');
+  if (decision !== 'show' && decision !== 'muck') throw new Error('Decision must be "show" or "muck".');
+  const { order, currentIndex, decisions, ranking } = state.pendingReveal;
+  if (currentIndex >= order.length) throw new Error('The reveal is already complete.');
+  if (order[currentIndex] !== seat) throw new Error(`It's Seat ${order[currentIndex] + 1}'s turn to show or muck, not yours.`);
+
+  const newDecisions = { ...decisions, [seat]: decision === 'show' ? 'shown' : 'mucked' };
+  const newIndex = currentIndex + 1;
+
+  if (newIndex < order.length) {
+    return { ...state, pendingReveal: { ...state.pendingReveal, currentIndex: newIndex, decisions: newDecisions } };
+  }
+
+  // Everyone's decided — drop mucked seats from contention entirely (they
+  // can't win regardless of what they were actually holding) and award the
+  // pot(s) to the best hand among whoever actually showed.
+  const shownOnlyRanking = ranking
+    .map(group => group.filter(entry => newDecisions[entry.seat] === 'shown'))
+    .filter(group => group.length > 0);
+  const finished = finishHand({ ...state, pendingReveal: null }, { uncontested: false, ranking: shownOnlyRanking });
+  return { ...finished, result: { ...finished.result, revealDecisions: newDecisions } };
 }
 
 // Shared ending path for both "everyone folded but one" and "showdown".
@@ -258,5 +321,28 @@ function finishHand(state, outcome) {
       uncontested: outcome.uncontested,
       ranking: outcome.ranking || null,
     },
+    // Uncontested wins never went to a real showdown, so nothing was ever
+    // required to be revealed — but winning without a fight is exactly the
+    // moment a voluntary "want to show your bluff?" prompt is fun. This is
+    // purely cosmetic: the pot's already awarded above either way.
+    pendingVoluntaryShow: outcome.uncontested ? { seat: outcome.winnerSeat, decided: false } : null,
+  };
+}
+
+// Called when the winner of an uncontested hand decides whether to
+// voluntarily reveal their hand. Purely cosmetic — the pot was already
+// awarded in finishHand above, this can't change who won anything.
+export function applyVoluntaryShowDecision(state, seat, decision) {
+  if (!state.pendingVoluntaryShow) throw new Error('No voluntary show is pending.');
+  if (state.pendingVoluntaryShow.decided) throw new Error('That decision has already been made.');
+  if (state.pendingVoluntaryShow.seat !== seat) throw new Error('That choice belongs to a different seat.');
+  if (decision !== 'show' && decision !== 'muck') throw new Error('Decision must be "show" or "muck".');
+
+  return {
+    ...state,
+    pendingVoluntaryShow: { ...state.pendingVoluntaryShow, decided: true },
+    result: decision === 'show'
+      ? { ...state.result, voluntaryReveal: { seat, holeCards: state.holeCards[seat] } }
+      : state.result,
   };
 }
