@@ -220,7 +220,7 @@ function render(state) {
           topRowHtml += `<button id="customToggleBtn" type="button">Custom</button>`;
           customPanelHtml = `
             <input type="range" id="customSlider" min="${minRaiseTotal}" max="${maxRaiseTotal}" value="${minRaiseTotal}" style="width:100%;">
-            <div id="customAmount" style="text-align:center;color:#c9a84c;font-weight:600;margin:4px 0;">Raise to ${minRaiseTotal}</div>
+            <div id="customAmount" style="text-align:left;color:#c9a84c;font-weight:600;margin:4px 0;">Raise to ${minRaiseTotal}</div>
             <div style="display:flex;justify-content:center;gap:10px;">
               <button data-type="raise" data-amount="${minRaiseTotal}" id="customConfirmBtn">Confirm</button>
               <button type="button" id="customCancelBtn">Cancel</button>
