@@ -187,7 +187,39 @@ function render(state) {
   // way the host will validate it (getLegalActions is a pure function, so
   // running it here just predicts what the host will accept).
   const actionsEl = document.getElementById('actions');
-  if (!state.result && state.actingSeat === mySeat) {
+  const myRevealTurn = state.pendingReveal && state.pendingReveal.order[state.pendingReveal.currentIndex] === mySeat;
+  const myVoluntaryTurn = state.pendingVoluntaryShow && state.pendingVoluntaryShow.seat === mySeat && !state.pendingVoluntaryShow.decided;
+
+  if (myRevealTurn || myVoluntaryTurn) {
+    // The TV is the real authority on the 5-second auto-muck timer — this
+    // countdown is purely informational, so a slow phone can't break
+    // enforcement, only its own on-screen number might drift slightly.
+    const label = myRevealTurn ? 'Show or muck your hand?' : 'Show your hand? (optional — you already won the pot)';
+    actionsEl.innerHTML = `
+      <div style="width:100%;text-align:center;color:#c9a84c;margin-bottom:8px;">${label}
+        <span id="revealCountdown" style="color:#7d8299;font-weight:normal;"></span></div>
+      <div style="display:flex;justify-content:center;gap:12px;width:100%;">
+        <button data-decision="show">Show</button>
+        <button data-decision="muck" class="fold">Muck</button>
+      </div>`;
+    let secondsLeft = 5;
+    const countdownEl = document.getElementById('revealCountdown');
+    countdownEl.textContent = `(${secondsLeft}s)`;
+    const countdownHandle = setInterval(() => {
+      secondsLeft--;
+      if (countdownEl.isConnected && secondsLeft > 0) countdownEl.textContent = `(${secondsLeft}s)`;
+      else clearInterval(countdownHandle);
+    }, 1000);
+    actionsEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const showing = btn.dataset.decision === 'show';
+        const type = myRevealTurn ? (showing ? 'show' : 'muck') : (showing ? 'voluntaryShow' : 'voluntaryMuck');
+        requestAction(mySeat, { type });
+        clearInterval(countdownHandle);
+        actionsEl.innerHTML = '';
+      });
+    });
+  } else if (!state.result && state.actingSeat === mySeat) {
     const fakeBettingRoundState = {
       actingSeat: state.actingSeat, activeSeats: state.activeSeats, folded: state.foldedSeats,
       allIn: state.activeSeats.filter(s => state.stacks[s] === 0 && !state.foldedSeats.includes(s)),

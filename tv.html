@@ -95,7 +95,7 @@
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
 import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans } from './game-sync.js';
-import { startHand, applyHandAction } from './full-hand.js';
+import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
 
 const connEl = document.getElementById('conn');
 watchConnection((connected) => {
@@ -170,6 +170,33 @@ const burnCardBackUrl = CardArt.renderBack(128).toDataURL();
 let revealedBoardLen = 0;
 let burnAnimationPending = false;
 
+// Only ever send hole cards phones are actually allowed to see right now —
+// a mucked hand must never be transmitted at all, not just hidden visually,
+// or mucking would be privacy theater (visible in the raw debug dump).
+function visibleHoleCards(h) {
+  if (h.pendingReveal) {
+    const out = {};
+    Object.keys(h.pendingReveal.decisions).forEach(seat => {
+      if (h.pendingReveal.decisions[seat] === 'shown') out[seat] = h.holeCards[seat];
+    });
+    return out;
+  }
+  if (h.result) {
+    if (h.result.uncontested) {
+      return h.result.voluntaryReveal ? { [h.result.voluntaryReveal.seat]: h.holeCards[h.result.voluntaryReveal.seat] } : {};
+    }
+    if (h.result.revealDecisions) {
+      const out = {};
+      Object.keys(h.result.revealDecisions).forEach(seat => {
+        if (h.result.revealDecisions[seat] === 'shown') out[seat] = h.holeCards[seat];
+      });
+      return out;
+    }
+    return h.holeCards; // all-in path — WSOP rule is everyone shows, no muck exists here
+  }
+  return {};
+}
+
 function publicStateFrom(h) {
   return {
     numSeats: h.numSeats,
@@ -185,7 +212,9 @@ function publicStateFrom(h) {
     currentBet: h.bettingRound ? h.bettingRound.currentBet : 0,
     minRaiseAmount: h.bettingRound ? h.bettingRound.minRaiseAmount : 0,
     result: h.result, // includes ranking with categoryName — safe to reveal, showdown is public in real poker too
-    revealedHoleCards: h.result && !h.result.uncontested ? h.holeCards : null, // reveal at real showdown only
+    revealedHoleCards: visibleHoleCards(h),
+    pendingReveal: h.pendingReveal ? { order: h.pendingReveal.order, currentIndex: h.pendingReveal.currentIndex } : null,
+    pendingVoluntaryShow: h.pendingVoluntaryShow,
   };
 }
 
@@ -222,6 +251,8 @@ function startNewHand() {
   burnAnimationPending = false;
   actionLog = [];
   currentStreetLabel = '';
+  clearRevealTimer();
+  clearVoluntaryTimer();
   handState = startHand({
     numSeats: Math.max(...gameConfig.activeSeats) + 1,
     activeSeats: gameConfig.activeSeats,
@@ -249,14 +280,78 @@ function dealNextHand() {
   startNewHand();
 }
 
-// Process action requests from phones, strictly in arrival order.
+// Shared by both a real phone decision (via the action queue above) and the
+// auto-muck timer / host "force muck" override below — same code path
+// either way, so there's only one place that can apply a reveal decision.
+function applyReveal(seat, decision) {
+  const pending = handState.pendingReveal;
+  if (!pending) return; // already resolved (e.g. timer fired after a real decision beat it)
+  const handInfo = pending.ranking.flatMap(g => g).find(e => e.seat === seat);
+  handState = applyRevealDecision(handState, seat, decision);
+  logEvent(decision === 'show' && handInfo ? `Seat ${seat + 1} shows ${describeHand(handInfo.hand)}` : `Seat ${seat + 1} mucks`);
+  clearRevealTimer();
+  publish();
+}
+function applyVoluntaryReveal(seat, decision) {
+  if (!handState.pendingVoluntaryShow || handState.pendingVoluntaryShow.decided) return;
+  handState = applyVoluntaryShowDecision(handState, seat, decision);
+  if (decision === 'show') logEvent(`Seat ${seat + 1} shows their hand`);
+  clearVoluntaryTimer();
+  publish();
+}
+
+// Host-authoritative countdown: whoever's currently up to decide gets 5
+// seconds before auto-mucking (matches how real online poker rooms default
+// to a fast auto-muck rather than a long wait — see the design discussion).
+// This timer is the ONLY clock that matters; it lives on the TV, not on
+// each phone, so it can't be affected by a phone lagging or backgrounding.
+let revealTimerHandle = null;
+let revealTimerSeat = null;
+function clearRevealTimer() {
+  if (revealTimerHandle) clearTimeout(revealTimerHandle);
+  revealTimerHandle = null;
+  revealTimerSeat = null;
+}
+function ensureRevealTimer() {
+  const pending = handState && handState.pendingReveal;
+  const targetSeat = pending && pending.currentIndex < pending.order.length ? pending.order[pending.currentIndex] : null;
+  if (targetSeat === null) { clearRevealTimer(); return; }
+  if (revealTimerSeat === targetSeat) return; // already running for this exact turn
+  clearRevealTimer();
+  revealTimerSeat = targetSeat;
+  revealTimerHandle = setTimeout(() => applyReveal(targetSeat, 'muck'), 5000);
+}
+
+let voluntaryTimerHandle = null;
+let voluntaryTimerSeat = null;
+function clearVoluntaryTimer() {
+  if (voluntaryTimerHandle) clearTimeout(voluntaryTimerHandle);
+  voluntaryTimerHandle = null;
+  voluntaryTimerSeat = null;
+}
+function ensureVoluntaryTimer() {
+  const pending = handState && handState.pendingVoluntaryShow;
+  if (!pending || pending.decided) { clearVoluntaryTimer(); return; }
+  if (voluntaryTimerSeat === pending.seat) return;
+  clearVoluntaryTimer();
+  voluntaryTimerSeat = pending.seat;
+  voluntaryTimerHandle = setTimeout(() => applyVoluntaryReveal(pending.seat, 'muck'), 5000);
+}
 watchActionQueue((key, request) => {
   clearActionQueueItem(key); // remove immediately so it's never reprocessed
-  if (!handState || handState.result) return; // no hand in progress — ignore stray requests
+  if (!handState) return; // no hand at all — ignore stray requests
+  const type = request.action.type;
   try {
-    handState = applyHandAction(handState, request.seat, request.action);
-    logEvent(formatAction(request.seat, request.action, handState.stacks[request.seat]));
-    publish();
+    if (type === 'show' || type === 'muck') {
+      applyReveal(request.seat, type);
+    } else if (type === 'voluntaryShow' || type === 'voluntaryMuck') {
+      applyVoluntaryReveal(request.seat, type === 'voluntaryShow' ? 'show' : 'muck');
+    } else {
+      if (handState.result) return; // a betting action with no hand in progress — ignore
+      handState = applyHandAction(handState, request.seat, request.action);
+      logEvent(formatAction(request.seat, request.action, handState.stacks[request.seat]));
+      publish();
+    }
     document.getElementById('tvError').textContent = '';
   } catch (e) {
     document.getElementById('tvError').textContent = '⚠ Rejected action from Seat ' + (request.seat + 1) + ': ' + e.message;
@@ -365,6 +460,32 @@ function revealNextStep() {
   }, 1100);
 }
 
+function muckedCardsHtml() {
+  const back = `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10\u2660</span>`;
+  return back + back;
+}
+// What a seat's card cell should show, across every phase a hand can be in.
+function seatCardsHtml(h, seat) {
+  if (h.pendingReveal) {
+    const decision = h.pendingReveal.decisions[seat];
+    if (decision === 'shown') return h.holeCards[seat].map(renderCard).join('');
+    if (decision === 'mucked') return muckedCardsHtml();
+    return '\uD83C\uDCA0 \uD83C\uDCA0'; // hasn't decided yet
+  }
+  if (h.result) {
+    if (h.result.uncontested) {
+      return (h.result.voluntaryReveal && h.result.voluntaryReveal.seat === seat)
+        ? h.holeCards[seat].map(renderCard).join('') : '\uD83C\uDCA0 \uD83C\uDCA0';
+    }
+    if (h.result.revealDecisions) { // went through the turn-based reveal
+      const decision = h.result.revealDecisions[seat];
+      return decision === 'shown' ? h.holeCards[seat].map(renderCard).join('') : muckedCardsHtml();
+    }
+    return h.holeCards[seat].map(renderCard).join(''); // all-in path — everyone shows, no muck
+  }
+  return '\uD83C\uDCA0 \uD83C\uDCA0';
+}
+
 function render() {
   if (!handState) return;
   const h = handState;
@@ -390,10 +511,10 @@ function render() {
     const bet = h.bettingRound ? (h.bettingRound.bets[seat] || 0) : 0;
     const cls = folded ? 'folded' : (isActing ? 'acting' : '');
     const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
-    const revealed = h.result && !h.result.uncontested && revealCaughtUp ? h.holeCards[seat] : null;
+    const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
     return `<tr class="${cls}">
       <td>Seat ${seat + 1}${dealerTag}</td>
-      <td>${revealed ? revealed.map(renderCard).join('') : '🂠 🂠'}</td>
+      <td>${cardsHtml}</td>
       <td>${h.stacks[seat]}</td>
       <td>${bet}</td>
       <td>${folded ? 'folded' : (h.stacks[seat] === 0 ? 'all-in' : '')}</td>
@@ -404,7 +525,20 @@ function render() {
 
   const resultArea = document.getElementById('resultArea');
   const hostControls = document.getElementById('hostControls');
-  if (h.result && revealCaughtUp) {
+  if (h.pendingReveal && revealCaughtUp) {
+    ensureRevealTimer();
+    const pending = h.pendingReveal;
+    const seat = pending.order[pending.currentIndex];
+    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on Seat ${seat + 1} to show or muck\u2026</div>
+      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (Seat ${seat + 1})</button></div>`;
+    document.getElementById('forceMuckBtn').addEventListener('click', () => applyReveal(seat, 'muck'));
+    hostControls.innerHTML = '';
+  } else if (h.pendingVoluntaryShow && !h.pendingVoluntaryShow.decided && revealCaughtUp) {
+    ensureVoluntaryTimer();
+    resultArea.innerHTML = `<div style="color:#7d8299;">Seat ${h.pendingVoluntaryShow.seat + 1} can choose to reveal their hand\u2026</div>`;
+    hostControls.innerHTML = `<button id="nextHandBtn">Deal Next Hand</button>`;
+    document.getElementById('nextHandBtn').addEventListener('click', dealNextHand);
+  } else if (h.result && revealCaughtUp) {
     const handBySeat = {};
     if (h.result.ranking) {
       h.result.ranking.forEach(group => group.forEach(({ seat, hand }) => { handBySeat[seat] = hand; }));
