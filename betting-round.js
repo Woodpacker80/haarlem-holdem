@@ -95,12 +95,12 @@ export function getLegalActions(state, seat) {
 // first, so reaching an illegal action here means a bug upstream, not a
 // normal "can't do that" case to display politely.
 export function applyAction(state, seat, action) {
-  if (state.actingSeat !== seat) throw new Error(`Seat ${seat} tried to act out of turn.`);
-  if (!canAct(state, seat)) throw new Error(`Seat ${seat} cannot act (folded or all-in).`);
+  if (state.actingSeat !== seat) throw new Error(`Seat ${seat + 1} tried to act out of turn.`);
+  if (!canAct(state, seat)) throw new Error(`Seat ${seat + 1} cannot act (folded or all-in).`);
 
   const { legal, toCall, minRaiseTotal, maxRaiseTotal } = getLegalActions(state, seat);
   if (!legal.includes(action.type)) {
-    throw new Error(`Seat ${seat} cannot ${action.type} right now. Legal actions: ${legal.join(', ')}`);
+    throw new Error(`Seat ${seat + 1} cannot ${action.type} right now. Legal actions: ${legal.join(', ')}`);
   }
 
   let next = {
@@ -128,7 +128,7 @@ export function applyAction(state, seat, action) {
       throw new Error(`Raise of ${raiseTotal} is below the minimum of ${minRaiseTotal} (unless going all-in for ${maxRaiseTotal}).`);
     }
     if (raiseTotal > maxRaiseTotal) {
-      throw new Error(`Raise of ${raiseTotal} exceeds seat ${seat}'s available total of ${maxRaiseTotal}.`);
+      throw new Error(`Raise of ${raiseTotal} exceeds seat ${seat + 1}'s available total of ${maxRaiseTotal}.`);
     }
     const additional = raiseTotal - next.bets[seat];
     next.bets[seat] = raiseTotal;
