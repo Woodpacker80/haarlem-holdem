@@ -243,7 +243,7 @@ function render(state) {
         const clamp = (n) => Math.max(minRaiseTotal, Math.min(maxRaiseTotal, Math.round(n)));
         const presets = [
           { label: 'Min Raise', amount: minRaiseTotal },
-          { label: '3x Bet', amount: clamp(state.currentBet * 3) },
+          ...(state.currentBet > 0 ? [{ label: '3x Bet', amount: clamp(state.currentBet * 3) }] : []),
           { label: '\u00bd Pot', amount: clamp(state.currentBet + potAfterCall * 0.5) },
           { label: 'Pot', amount: clamp(state.currentBet + potAfterCall) },
         ].filter(p => p.amount < maxRaiseTotal); // don't duplicate the All-in button below
