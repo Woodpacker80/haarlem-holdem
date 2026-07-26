@@ -28,6 +28,7 @@
   button:hover{background:rgba(201,168,76,0.15);}
   button.fold{border-color:#BE1622;color:#BE1622;}
   button.fold:hover{background:rgba(190,22,34,0.15);}
+  button.muck{border-color:#BE1622;}
   #others{font-size:11px;color:#7d8299;text-align:center;line-height:1.7;}
   #others .folded{text-decoration:line-through;color:#3a3f52;}
   #others .acting{color:#c9a84c;font-weight:700;}
@@ -200,7 +201,7 @@ function render(state) {
         <span id="revealCountdown" style="color:#7d8299;font-weight:normal;"></span></div>
       <div style="display:flex;justify-content:center;gap:12px;width:100%;">
         <button data-decision="show">Show</button>
-        <button data-decision="muck" class="fold">Muck</button>
+        <button data-decision="muck" class="muck">Muck</button>
       </div>`;
     let secondsLeft = 5;
     const countdownEl = document.getElementById('revealCountdown');
