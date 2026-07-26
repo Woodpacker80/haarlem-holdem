@@ -37,6 +37,8 @@
     animation:burnPulse 1.1s ease-in-out infinite;}
   @keyframes burnPulse{0%,100%{opacity:0.65;}50%{opacity:1;}}
   #boardArea{text-align:center;margin-bottom:16px;min-height:50px;}
+  #leaderboard{text-align:center;margin-bottom:10px;font-size:13px;color:#c9c4b0;}
+  #leaderboard .rank1{color:#c9a84c;font-weight:600;}
   #statusLine{font-size:15px;color:#c9a84c;text-align:center;margin-bottom:14px;}
   #actionLog{max-width:560px;margin:0 auto 14px;font-size:13px;color:#c9c4b0;
     min-height:18px;line-height:1.6;display:flex;align-items:center;justify-content:center;gap:18px;}
@@ -52,13 +54,21 @@
 <div id="potBadge" style="display:none;position:fixed;top:14px;right:16px;color:#c9a84c;
   font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:7px 14px;
   border-radius:8px;border:1px solid #3a3f52;z-index:20;"></div>
-<h1>Haarlem Hold'em TV Host</h1>
-<div id="conn" style="margin-top:2px;">connecting…</div>
-<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;margin-top:6px;">
-  <button id="quitGameBtn" style="padding:6px 14px;font-size:12px;">Quit Game</button>
-  <button id="clearBansBtn" style="padding:6px 14px;font-size:12px;">Clear All Bans</button>
-  <button id="startNewGameBtn" style="padding:6px 14px;font-size:12px;">Start New Game</button>
-  <button id="helpBtn" style="padding:6px 14px;font-size:12px;">How to Play</button>
+<div style="display:flex;align-items:center;justify-content:center;gap:24px;">
+  <div id="qrJoin" style="text-align:center;">
+    <img id="qrCodeImg" style="width:110px;height:110px;border-radius:8px;border:2px solid #c9a84c;background:#fff;" alt="Scan to join">
+    <div style="font-size:10px;color:#7d8299;margin-top:4px;">Scan to join</div>
+  </div>
+  <div>
+    <h1>Haarlem Hold'em TV Host</h1>
+    <div id="conn" style="margin-top:2px;text-align:center;">connecting…</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;margin-top:6px;">
+      <button id="quitGameBtn" style="padding:6px 14px;font-size:12px;">Quit Game</button>
+      <button id="clearBansBtn" style="padding:6px 14px;font-size:12px;">Clear All Bans</button>
+      <button id="startNewGameBtn" style="padding:6px 14px;font-size:12px;">Start New Game</button>
+      <button id="helpBtn" style="padding:6px 14px;font-size:12px;">How to Play</button>
+    </div>
+  </div>
 </div>
 <div id="tvError" style="color:#BE1622;font-size:12px;min-height:16px;text-align:center;"></div>
 
@@ -86,6 +96,7 @@
 </div>
 
 <div id="jumbo" style="display:none;">
+  <div id="leaderboard"></div>
   <div id="statusLine"></div>
   <div id="actionLog"></div>
   <div id="boardArea"></div>
@@ -99,7 +110,7 @@
 <script src="card-art.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames } from './game-sync.js';
 import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
 
 const connEl = document.getElementById('conn');
@@ -118,6 +129,20 @@ function renderCard(card) {
 let handState = null;
 let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, bigBlindAmount }
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
+let playerNames = {}; // seatIndex -> name, from watchPlayerNames — persists across Quit Game / Start New Game on purpose (see game-sync.js)
+watchPlayerNames((names) => { playerNames = names; render(); });
+
+// The QR code links to wherever this TV page itself is being served from —
+// no hardcoded domain, so it keeps working if the repo/host ever changes.
+document.getElementById('qrCodeImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='
+  + encodeURIComponent(new URL('phone.html', window.location.href).href);
+
+// Everywhere a seat gets labeled on screen, use this instead of a raw
+// "Seat X" — falls back gracefully if that seat hasn't set a name yet
+// (e.g. mid-testing, or someone reconnecting before the name write lands).
+function seatLabel(seat) {
+  return playerNames[seat] || `Seat ${seat + 1}`;
+}
 
 // Rolling feed of what's happened this hand: actions and street reveals.
 // Reset per hand in startNewHand(). Kept short (last few entries) — this is
@@ -129,7 +154,7 @@ function logEvent(text) {
   if (actionLog.length > 2) actionLog.shift();
 }
 function formatAction(seat, action, resultingStack) {
-  const who = `Seat ${seat + 1}`;
+  const who = seatLabel(seat);
   const isAllIn = resultingStack === 0 && (action.type === 'call' || action.type === 'raise');
   switch (action.type) {
     case 'fold': return `${who} Folds`;
@@ -248,6 +273,7 @@ function dealFirstHand() {
   };
   startNewHand();
   document.getElementById('setupArea').style.display = 'none';
+  document.getElementById('qrJoin').style.display = 'none';
   document.getElementById('jumbo').style.display = 'block';
 }
 
@@ -293,14 +319,14 @@ function applyReveal(seat, decision) {
   if (!pending) return; // already resolved (e.g. timer fired after a real decision beat it)
   const handInfo = pending.ranking.flatMap(g => g).find(e => e.seat === seat);
   handState = applyRevealDecision(handState, seat, decision);
-  logEvent(decision === 'show' && handInfo ? `Seat ${seat + 1} shows ${describeHand(handInfo.hand)}` : `Seat ${seat + 1} mucks`);
+  logEvent(decision === 'show' && handInfo ? `${seatLabel(seat)} shows ${describeHand(handInfo.hand)}` : `${seatLabel(seat)} mucks`);
   clearRevealTimer();
   publish();
 }
 function applyVoluntaryReveal(seat, decision) {
   if (!handState.pendingVoluntaryShow || handState.pendingVoluntaryShow.decided) return;
   handState = applyVoluntaryShowDecision(handState, seat, decision);
-  if (decision === 'show') logEvent(`Seat ${seat + 1} shows their hand`);
+  if (decision === 'show') logEvent(`${seatLabel(seat)} shows their hand`);
   clearVoluntaryTimer();
   publish();
 }
@@ -375,7 +401,7 @@ watchSeats((seats) => {
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([seatStr, uid]) => `
         <span style="display:inline-flex;align-items:center;gap:6px;margin:0 10px;">
-          Seat ${Number(seatStr) + 1}
+          ${seatLabel(Number(seatStr))}
           <button class="kickBtn" data-seat="${seatStr}" data-uid="${uid}"
             style="font-size:11px;padding:3px 8px;">Kick</button>
         </span>`).join('');
@@ -407,9 +433,11 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   await clearGameState();
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupArea').style.display = 'block';
+  document.getElementById('qrJoin').style.display = 'block';
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('leaderboard').innerHTML = '';
 });
 
 // 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
@@ -429,9 +457,11 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupArea').style.display = 'block';
+  document.getElementById('qrJoin').style.display = 'block';
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('leaderboard').innerHTML = '';
 });
 
 // Burn-card tension effect: whenever the board has grown beyond what's
@@ -503,9 +533,17 @@ function render() {
   potBadge.textContent = `Pot: ${potNow}`;
   potBadge.style.display = 'block';
 
+  // Leaderboard: ranked by CURRENT chip count, this session only (per
+  // Mark's explicit choice — not tracked across sessions/games over time).
+  const ranked = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
+  const medal = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+  document.getElementById('leaderboard').innerHTML = ranked.map((seat, i) =>
+    `<span style="margin:0 12px;" class="${i === 0 ? 'rank1' : ''}">${medal[i] || ('#' + (i + 1))} ${seatLabel(seat)} \u2014 ${h.stacks[seat]}</span>`
+  ).join('');
+
   document.getElementById('statusLine').textContent = h.result
     ? 'Hand complete'
-    : (h.bettingRound ? `It's Seat ${h.bettingRound.actingSeat + 1}'s turn` : '');
+    : (h.bettingRound ? `It's ${seatLabel(h.bettingRound.actingSeat)}'s turn` : '');
 
   const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
   const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
@@ -527,7 +565,7 @@ function render() {
     const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
     return `<tr class="${cls}">
-      <td>Seat ${seat + 1}${dealerTag}</td>
+      <td>${seatLabel(seat)}${dealerTag}</td>
       <td>${cardsHtml}</td>
       <td>${h.stacks[seat]}</td>
       <td>${bet}</td>
@@ -543,13 +581,13 @@ function render() {
     ensureRevealTimer();
     const pending = h.pendingReveal;
     const seat = pending.order[pending.currentIndex];
-    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on Seat ${seat + 1} to show or muck\u2026</div>
-      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (Seat ${seat + 1})</button></div>`;
+    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on ${seatLabel(seat)} to show or muck\u2026</div>
+      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (${seatLabel(seat)})</button></div>`;
     document.getElementById('forceMuckBtn').addEventListener('click', () => applyReveal(seat, 'muck'));
     hostControls.innerHTML = '';
   } else if (h.pendingVoluntaryShow && !h.pendingVoluntaryShow.decided && revealCaughtUp) {
     ensureVoluntaryTimer();
-    resultArea.innerHTML = `<div style="color:#7d8299;">Seat ${h.pendingVoluntaryShow.seat + 1} can choose to reveal their hand\u2026</div>`;
+    resultArea.innerHTML = `<div style="color:#7d8299;">${seatLabel(h.pendingVoluntaryShow.seat)} can choose to reveal their hand\u2026</div>`;
     hostControls.innerHTML = `<button id="nextHandBtn">Deal Next Hand</button>`;
     document.getElementById('nextHandBtn').addEventListener('click', dealNextHand);
   } else if (h.result && revealCaughtUp) {
@@ -562,7 +600,7 @@ function render() {
         <div class="amount">${i === 0 ? 'Main Pot' : 'Side Pot ' + i}: ${p.amount}</div>
         <div class="eligible">Won by: ${Object.entries(h.result.payouts).filter(([,a])=>a>0).map(([s,a]) => {
           const desc = handBySeat[s] ? ' with ' + describeHand(handBySeat[s]) : '';
-          return 'Seat ' + (Number(s) + 1) + ' (' + a + ')' + desc;
+          return seatLabel(Number(s)) + ' (' + a + ')' + desc;
         }).join(', ')}</div>
       </div>`).join('');
     resultArea.innerHTML = potsHtml;
