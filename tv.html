@@ -45,7 +45,9 @@
 <p class="sub">This screen runs the game and shares it with every phone in the room. Keep this
 open for the whole session.</p>
 <div id="conn">connecting…</div>
-<button id="newGameBtn" style="padding:8px 16px;font-size:12px;">New Game / Reset</button>
+<button id="quitGameBtn" style="padding:8px 16px;font-size:12px;">Quit Game</button>
+<button id="clearBansBtn" style="padding:8px 16px;font-size:12px;">Clear All Bans</button>
+<button id="startNewGameBtn" style="padding:8px 16px;font-size:12px;">Start New Game</button>
 <div id="tvError" style="color:#BE1622;font-size:12px;min-height:16px;"></div>
 
 <div id="setupArea">
@@ -66,7 +68,7 @@ open for the whole session.</p>
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans } from './game-sync.js';
 import { startHand, applyHandAction } from './full-hand.js';
 
 const connEl = document.getElementById('conn');
@@ -177,25 +179,63 @@ watchActionQueue((key, request) => {
 watchSeats((seats) => {
   currentSeats = seats;
   const count = Object.keys(seats).length;
-  document.getElementById('seatList').textContent =
-    count === 0 ? 'Waiting for players to join…' : `${count} player${count === 1 ? '' : 's'} joined (seats: ${Object.keys(seats).map(s => Number(s) + 1).join(', ')})`;
+  const seatListEl = document.getElementById('seatList');
+  if (count === 0) {
+    seatListEl.textContent = 'Waiting for players to join…';
+  } else {
+    seatListEl.innerHTML = Object.entries(seats)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([seatStr, uid]) => `
+        <span style="display:inline-flex;align-items:center;gap:6px;margin:0 10px;">
+          Seat ${Number(seatStr) + 1}
+          <button class="kickBtn" data-seat="${seatStr}" data-uid="${uid}"
+            style="font-size:11px;padding:3px 8px;">Kick</button>
+        </span>`).join('');
+    seatListEl.querySelectorAll('.kickBtn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        kickSeat(btn.dataset.uid, Number(btn.dataset.seat));
+      });
+    });
+  }
   document.getElementById('startBtn').disabled = count < 2 || handState !== null;
 });
 
 document.getElementById('startBtn').addEventListener('click', dealFirstHand);
 
 // Lets the host manually reset whenever things get stuck. Deliberately a
-// FULL reset — clears seats, hole cards, public state, and any queued
-// actions, so nothing stale (like old hole cards) can linger and get shown
-// to a phone by accident. Everyone needs to rejoin/re-claim a seat
-// afterward; that's intentional, not a shortcut left half-finished.
-document.getElementById('newGameBtn').addEventListener('click', () => {
+// 1. QUIT GAME — plain stop. Clears seats, hole cards, public state, and
+// any queued actions, so nothing stale (like old hole cards) can linger.
+// Deliberately does NOT touch bans and does NOT kick anyone — a currently
+// connected phone's own auto-rejoin listener may grab a seat right back,
+// and that's fine here: cleaning THAT up is what step 3 is for.
+document.getElementById('quitGameBtn').addEventListener('click', async () => {
   handState = null;
   gameConfig = null;
-  clearGameState();
+  await clearGameState();
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupArea').style.display = 'block';
-  document.getElementById('seatList').textContent = 'Waiting for players to join…';
+  document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
+  document.getElementById('startBtn').disabled = true;
+});
+
+// 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
+// whenever the host chooses. See kickSeat/clearBans in game-sync.js.
+document.getElementById('clearBansBtn').addEventListener('click', clearBans);
+
+// 3. START NEW GAME — the actual "make sure the room is really empty"
+// step. Bans + removes whoever is seated AT THIS EXACT MOMENT (which may
+// include a ghost that silently auto-rejoined right after Quit Game,
+// since nothing stopped it from doing that) — this defeats that phone's
+// own auto-rejoin listener (it checks the ban before reclaiming). Doing
+// this as its own step, AFTER Clear All Bans has already run, means we
+// don't need any auto-expiring/timed unban logic: whatever gets banned
+// here just sits banned until the host clicks Clear All Bans again next
+// time, which is exactly the explicit, host-controlled behavior wanted.
+document.getElementById('startNewGameBtn').addEventListener('click', async () => {
+  await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
+  document.getElementById('jumbo').style.display = 'none';
+  document.getElementById('setupArea').style.display = 'block';
+  document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
 });
 
