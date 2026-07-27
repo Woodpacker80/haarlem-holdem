@@ -302,6 +302,10 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
   document.getElementById('seatBadge').textContent = 'joining…';
+  // squeezeContainer was display:none (0x0) when resizeSqueeze() first ran at
+  // page load, so the renderer/camera got set up against a zero-sized box —
+  // recompute now that it's actually visible with a real size.
+  resizeSqueeze();
 
   if (!myUid) myUid = await ensureAuth(); // in case the gate was submitted before auth resolved
   const seat = await claimSeat(myUid);
