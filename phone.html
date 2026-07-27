@@ -113,12 +113,13 @@ for (const cx of [SQ_FRAME_MIN.x, SQ_FRAME_MAX.x]) {
   }
 }
 const SQ_FRAME_SAFETY = 1.04;
+const SQ_ZOOM = 1.6; // >1 = camera moves closer than "just barely fits" — deliberately trading some off-frame slack at extreme squeeze for a bigger, more prominent card
 function updateSqueezeFraming() {
   const aspect = squeezeEl.clientWidth / squeezeEl.clientHeight;
   sqCamera.aspect = aspect;
   const vFovHalf = THREE.MathUtils.degToRad(sqCamera.fov) / 2;
   const hFovHalf = Math.atan(Math.tan(vFovHalf) * aspect);
-  const distance = Math.max(sqHalfH / Math.tan(vFovHalf), sqHalfW / Math.tan(hFovHalf)) * SQ_FRAME_SAFETY;
+  const distance = Math.max(sqHalfH / Math.tan(vFovHalf), sqHalfW / Math.tan(hFovHalf)) * SQ_FRAME_SAFETY / SQ_ZOOM;
   sqCamera.position.copy(sqInitialTarget).add(sqViewDir.clone().multiplyScalar(distance));
   sqCamera.updateProjectionMatrix();
   sqCamera.lookAt(sqInitialTarget);
@@ -173,8 +174,20 @@ function sqBuildCurlableCard(faceTex) {
   return { geo, pos, baseX: bx, baseZ: bz, group, faceMat };
 }
 // Placeholder textures until real hole cards arrive — replaced in setSqueezeHoleCards().
-const sqCardA = sqBuildCurlableCard(sqBackTexture);
-const sqCardB = sqBuildCurlableCard(sqBackTexture);
+// Neutral placeholder for the face side before real hole cards arrive —
+// deliberately NOT the back texture, so there's no moment where it looks
+// like "both sides show the card back" before a hand has actually dealt.
+function sqBlankFaceCanvas() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f3ecd8';
+  ctx.fillRect(0, 0, 512, 512);
+  return c;
+}
+const sqBlankFaceTexture = sqTextureFromCanvas(sqBlankFaceCanvas());
+const sqCardA = sqBuildCurlableCard(sqBlankFaceTexture);
+const sqCardB = sqBuildCurlableCard(sqBlankFaceTexture);
 sqCardA.group.position.set(-0.86 + SQ_NUDGE_X, 0, -0.9);
 sqCardB.group.position.set(-0.86 + 0.22 + SQ_NUDGE_X, 0.003, -0.9 + 0.06);
 sqScene.add(sqCardA.group, sqCardB.group);
