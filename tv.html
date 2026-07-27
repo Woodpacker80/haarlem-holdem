@@ -100,6 +100,7 @@
 </div>
 
 <script src="card-art.js"></script>
+<script src="sfx.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
 import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames } from './game-sync.js';
@@ -480,6 +481,7 @@ function revealNextStep() {
   const stepTarget = revealedBoardLen === 0 ? Math.min(3, actualBoardLen) : Math.min(revealedBoardLen + 1, actualBoardLen);
   setTimeout(() => {
     revealedBoardLen = stepTarget;
+    SFX.cardFlip();
     document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
     const streetJustShown = stepTarget === 3 ? 'flop' : stepTarget === 4 ? 'turn' : stepTarget === 5 ? 'river' : null;
     if (streetJustShown) currentStreetLabel = STREET_LABEL[streetJustShown];
@@ -530,6 +532,7 @@ function render() {
   if (h.result && revealCaughtUp && !rankingSyncedForResult) {
     frozenRankOrder = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
     rankingSyncedForResult = true;
+    SFX.win();
   }
 
   const potBadge = document.getElementById('potBadge');

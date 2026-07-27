@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Haarlem Hold'em — Phone</title>
+<script src="sfx.js"></script>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#0F2A55;color:#e9e2cf;
     font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
@@ -316,6 +317,9 @@ function render(state) {
       btn.addEventListener('click', () => {
         const type = btn.dataset.type;
         const action = type === 'raise' ? { type, amount: Number(btn.dataset.amount) } : { type };
+        if (type === 'fold') SFX.fold();
+        else if (type === 'check' || type === 'call') SFX.checkCall();
+        else if (type === 'raise') SFX.raise();
         requestAction(mySeat, action);
         errorEl.textContent = '';
         actionsEl.innerHTML = ''; // avoid double-taps while waiting for the host to process
