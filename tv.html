@@ -109,7 +109,7 @@
   <div style="margin-top:12px;"><button id="startBtn" disabled>Start Game</button></div>
 </div>
 
-<div id="jumbo" style="display:none;width:100%;">
+<div id="jumbo" style="display:none;width:100%;align-self:flex-start;">
   <div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;">
     <button id="leaderboardBtn" type="button" style="font-size:11px;padding:6px 14px;">Leaderboard</button>
     <div id="leaderboard" style="display:none;margin-top:8px;background:rgba(0,0,0,0.55);
@@ -292,6 +292,7 @@ function dealFirstHand() {
   startNewHand();
   document.getElementById('setupArea').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'none';
+  document.body.style.padding = '0';
   document.getElementById('jumbo').style.display = 'block';
 }
 
@@ -464,6 +465,7 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   await clearGameState();
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'block';
+  document.body.style.padding = '10px 24px 40px';
   document.getElementById('setupArea').style.display = 'block';
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
@@ -488,6 +490,7 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'block';
+  document.body.style.padding = '10px 24px 40px';
   document.getElementById('setupArea').style.display = 'block';
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
