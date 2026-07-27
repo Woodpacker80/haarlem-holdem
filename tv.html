@@ -247,6 +247,7 @@ function publish() {
 }
 
 function dealFirstHand() {
+  SFX.unlock();
   const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
   const startStack = parseInt(document.getElementById('startStack').value, 10);
   const stacks = {};
@@ -295,6 +296,7 @@ function startNewHand() {
 }
 
 function dealNextHand() {
+  SFX.unlock();
   gameConfig.stacks = handState.stacks;
   gameConfig.activeSeats = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] > 0);
   if (gameConfig.activeSeats.length < 2) {

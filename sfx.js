@@ -97,5 +97,17 @@
     setTimeout(() => noiseBurst({ duration: 0.035, filterFreq: 3200, filterType: 'highpass', gain: 0.1 }), 55);
   }
 
-  global.SFX = { cardFlip, win, fold, checkCall, raise };
+  // Call this directly inside a real click handler, as early as possible.
+  // Browsers can permanently refuse to let an AudioContext start if its
+  // VERY FIRST creation wasn't tied to an immediate user gesture — and on
+  // the TV, every sound actually plays from a setTimeout inside the reveal
+  // animation, a moment AFTER a click, not from the click itself. Calling
+  // this at the top of an actual button handler creates/resumes the
+  // context while still inside that gesture, so the later timer-triggered
+  // sounds have something already-unlocked to play through.
+  function unlock() {
+    getCtx();
+  }
+
+  global.SFX = { cardFlip, win, fold, checkCall, raise, unlock };
 })(typeof window !== 'undefined' ? window : globalThis);
