@@ -569,7 +569,7 @@ function render() {
     const cls = folded ? 'folded' : (isActing ? 'acting' : '');
     const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
-    const rankTag = '#' + rankOf[seat];
+    const rankTag = rankOf[seat] + '.';
     return `<tr class="${cls}">
       <td>${rankTag} ${seatLabel(seat)}${dealerTag}</td>
       <td>${cardsHtml}</td>
