@@ -190,7 +190,7 @@ let twoTexture = faceTextureFor('2', 'spades');
 // ---- card geometry ----
 // Local space: x in [0,W] (left->right), z in [0,H] (near/lifted -> far), y up.
 // The lifted corner is local (0,0,0).
-const W = 1.4, H = 2.0, S = 0.62;
+const W = 1.4, H = 2.0, S = 0.9;
 
 function buildFlatCardGeometry(w, h, segs) {
   const geo = new THREE.PlaneGeometry(w, h, segs, segs);
@@ -238,7 +238,7 @@ const curlCards = [cardA, cardB]; // unified pinch: both curl together, same axi
 const SQRT2 = Math.SQRT2;
 const kAxis = { x: -1 / SQRT2, z: 1 / SQRT2 };
 const nHat  = { x: -1 / SQRT2, z: -1 / SQRT2 };
-const THETA_MAX = 160 * Math.PI / 180;
+const THETA_MAX = 132 * Math.PI / 180;
 const dMax = S / SQRT2;
 
 let cornerCx = 0, cornerCz = 1; // which corner curls: 0 = near edge, 1 = far edge, per axis
