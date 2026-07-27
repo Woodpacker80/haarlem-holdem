@@ -47,6 +47,12 @@
     <button class="cornerBtn" data-cx="0" data-cz="1">↖</button>
     <button class="cornerBtn" data-cx="1" data-cz="1">↗</button>
   </div>
+  <div style="margin-top:4px;">
+    <label style="font-size:13px;color:#c9a84c;display:flex;align-items:center;gap:6px;justify-content:center;">
+      <input type="checkbox" id="deepSqueezeToggle">
+      Deep Squeeze mode (unroll from bottom edge, whole face)
+    </label>
+  </div>
   <div id="buttons">
     <button id="autoBtn">Auto-Demo</button>
     <button id="resetBtn">Reset</button>
@@ -289,8 +295,48 @@ function curlOneCard(card, peel) {
   card.geo.computeVertexNormals();
 }
 
+// ---- DEEP SQUEEZE (V7.3 experiment) ----
+// Same underlying idea as curlOneCard above (distance-from-an-anchor-line
+// sets the local bend angle, a single global rho controls how tight the
+// bend is) but anchored to a straight edge instead of a diagonal corner —
+// so the WHOLE face rolls, not just a triangular corner wedge. Bottom edge
+// (z=0, wherever the squeeze originates) stays flat and anchored; every
+// point above it bends upward by an angle proportional to its height, up
+// to thetaTotal at the far edge. As peel grows, that whole range of bend
+// gets applied further, so the reveal genuinely progresses bottom-index ->
+// center -> top-index, instead of only ever exposing one fixed corner.
+// X position never affects the bend — this is a roll around an edge, not
+// a corner, so the "which corner" left/right buttons don't matter here,
+// only whether cornerCz picks the bottom or top edge as the anchor.
+const dMaxDeep = H;
+function curlOneCardDeep(card, peel) {
+  const thetaTotal = peel * THETA_MAX;
+  const smallAngle = thetaTotal < 0.0005;
+  const rho = smallAngle ? 0 : dMaxDeep / thetaTotal;
+  for (let i = 0; i < card.pos.count; i++) {
+    const rawX = card.baseX[i], rawZ = card.baseZ[i];
+    const z = cornerCz === 0 ? rawZ : H - rawZ; // distance from the anchored edge
+    if (z <= 0 || smallAngle) {
+      card.pos.setXYZ(i, rawX, 0, rawZ);
+      continue;
+    }
+    const phi = z / rho;
+    const newZlocal = rho * Math.sin(phi);
+    const y = rho * (1 - Math.cos(phi));
+    const nz = cornerCz === 0 ? newZlocal : H - newZlocal;
+    card.pos.setXYZ(i, rawX, y, nz);
+  }
+  card.pos.needsUpdate = true;
+  card.geo.computeVertexNormals();
+}
+
+let deepSqueezeMode = false;
+document.getElementById('deepSqueezeToggle').addEventListener('change', (e) => {
+  deepSqueezeMode = e.target.checked;
+});
+
 function applyCurl(peel) {
-  curlCards.forEach(card => curlOneCard(card, peel));
+  curlCards.forEach(card => (deepSqueezeMode ? curlOneCardDeep(card, peel) : curlOneCard(card, peel)));
 }
 
 // ---- interaction ----
