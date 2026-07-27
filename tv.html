@@ -31,7 +31,7 @@
     background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);
     border:2px solid #2a1005;box-shadow:inset 0 0 40px rgba(0,0,0,0.5);}
   #tableCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    text-align:center;max-width:64%;}
+    text-align:center;max-width:64%;z-index:10;}
   .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
     background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
     padding:6px 9px;text-align:center;min-width:78px;
@@ -604,9 +604,13 @@ function render() {
     `<span style="margin:0 12px;" class="${i === 0 ? 'rank1' : ''}">${medal[i] || ('#' + (i + 1))} ${seatLabel(seat)} \u2014 ${h.stacks[seat]}</span>`
   ).join('');
 
-  document.getElementById('statusLine').textContent = h.result
-    ? 'Hand complete'
+  const handComplete = h.result && revealCaughtUp;
+  document.getElementById('statusLine').innerHTML = h.result
+    ? 'Hand complete' + (handComplete ? ' <button id="nextHandBtnInline" style="margin-left:10px;">Deal Next Hand</button>' : '')
     : (h.bettingRound ? `It's ${seatLabel(h.bettingRound.actingSeat)}'s turn` : '');
+  if (handComplete) {
+    document.getElementById('nextHandBtnInline').addEventListener('click', dealNextHand);
+  }
 
   const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
   const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
@@ -661,8 +665,7 @@ function render() {
   } else if (h.pendingVoluntaryShow && !h.pendingVoluntaryShow.decided && revealCaughtUp) {
     ensureVoluntaryTimer();
     resultArea.innerHTML = `<div style="color:#7d8299;">${seatLabel(h.pendingVoluntaryShow.seat)} can choose to reveal their hand\u2026</div>`;
-    hostControls.innerHTML = `<button id="nextHandBtn">Deal Next Hand</button>`;
-    document.getElementById('nextHandBtn').addEventListener('click', dealNextHand);
+    hostControls.innerHTML = '';
   } else if (h.result && revealCaughtUp) {
     const potsHtml = h.result.pots.map((p, i) => {
       const eligibleSet = new Set(p.eligibleSeats);
@@ -699,8 +702,7 @@ function render() {
       </div>`;
     }).join('');
     resultArea.innerHTML = potsHtml;
-    hostControls.innerHTML = `<button id="nextHandBtn">Deal Next Hand</button>`;
-    document.getElementById('nextHandBtn').addEventListener('click', dealNextHand);
+    hostControls.innerHTML = '';
   } else {
     resultArea.innerHTML = '';
     hostControls.innerHTML = '';
