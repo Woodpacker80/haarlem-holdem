@@ -130,10 +130,20 @@ export function watchSeats(cb) {
 // seat's name too, not just the one joining.
 export async function claimName(seat, rawName) {
   const base = rawName.trim();
-  const namesSnap = await get(roomRef('game/playerNames'));
+  const [namesSnap, seatsSnap] = await Promise.all([
+    get(roomRef('game/playerNames')),
+    get(roomRef('game/seats')),
+  ]);
   const names = namesSnap.val() || {};
+  const occupiedSeats = seatsSnap.val() || {};
+  // A name only counts as a real collision if that OTHER seat is actually
+  // occupied by someone right now. Without this check, a phone that
+  // reloads and lands on a different seat than before would see its own
+  // orphaned name (left behind on the seat it vacated) as a "second
+  // person" with the same name, and wrongly relabel itself "Mark B"
+  // against nobody but its own leftover data.
   const matches = Object.entries(names).filter(([s, v]) =>
-    Number(s) !== seat && v && v.base && v.base.toLowerCase() === base.toLowerCase());
+    Number(s) !== seat && occupiedSeats[s] && v && v.base && v.base.toLowerCase() === base.toLowerCase());
 
   if (matches.length === 0) {
     await set(roomRef(`game/playerNames/${seat}`), { base, display: base });
