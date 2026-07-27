@@ -23,7 +23,7 @@
     background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);padding:16px;}
   table{border-collapse:collapse;font-size:13px;width:100%;}
   th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #1c2338;}
-  #ovalTable{position:relative;width:640px;max-width:90%;height:380px;margin-top:50px;}
+  #ovalTable{position:absolute;top:50px;left:0;right:0;height:380px;}
   #ovalRim{position:absolute;inset:0;border-radius:50%;
     background:linear-gradient(135deg, #e0c26a 0%, #c9a84c 55%, #8a6d2e 100%);
     box-shadow:0 0 40px rgba(0,0,0,0.5);}
@@ -109,7 +109,7 @@
   <div style="margin-top:12px;"><button id="startBtn" disabled>Start Game</button></div>
 </div>
 
-<div id="jumbo" style="display:none;width:100%;align-self:flex-start;">
+<div id="jumbo" style="display:none;width:100%;height:440px;align-self:flex-start;position:relative;">
   <div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;">
     <button id="leaderboardBtn" type="button" style="font-size:11px;padding:6px 14px;">Leaderboard</button>
     <div id="leaderboard" style="display:none;margin-top:8px;background:rgba(0,0,0,0.55);
