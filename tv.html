@@ -75,7 +75,7 @@
   font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:2px solid #c9a84c;z-index:20;"></div>
 
-<div id="setupHeader">
+<div id="setupHeader" style="text-align:center;">
   <h1>Haarlem Hold'em TV Host</h1>
   <div id="conn" style="margin-top:2px;text-align:center;">connecting…</div>
   <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;margin-top:6px;">
@@ -107,6 +107,13 @@
   <label>Small blind</label><input type="number" id="sbAmount" value="25" min="1">
   <label>Big blind</label><input type="number" id="bbAmount" value="50" min="2">
   <div style="margin-top:12px;"><button id="startBtn" disabled>Start Game</button></div>
+
+  <div style="text-align:center;margin-top:20px;">
+    <div style="color:#7d8299;font-size:12px;margin-bottom:8px;">Scan to join on your phone</div>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https%3A%2F%2Fwoodpacker80.github.io%2Fhaarlem-holdem%2Fphone.html"
+      width="180" height="180" alt="QR code to join on your phone"
+      style="border-radius:8px;border:2px solid #c9a84c;background:#fff;padding:8px;">
+  </div>
 </div>
 
 <div id="jumbo" style="display:none;width:100%;align-self:flex-start;position:relative;">
