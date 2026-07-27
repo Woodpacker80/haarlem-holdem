@@ -126,6 +126,7 @@
       <div id="resultArea"></div>
       <div id="hostControls"></div>
     </div>
+    <button id="nextHandBtn2" style="display:none;position:absolute;z-index:10;">Deal Next Hand</button>
   </div>
 </div>
 
@@ -605,12 +606,9 @@ function render() {
   ).join('');
 
   const handComplete = h.result && revealCaughtUp;
-  document.getElementById('statusLine').innerHTML = h.result
-    ? 'Hand complete' + (handComplete ? ' <button id="nextHandBtnInline" style="margin-left:10px;">Deal Next Hand</button>' : '')
+  document.getElementById('statusLine').textContent = h.result
+    ? 'Hand complete'
     : (h.bettingRound ? `It's ${seatLabel(h.bettingRound.actingSeat)}'s turn` : '');
-  if (handComplete) {
-    document.getElementById('nextHandBtnInline').addEventListener('click', dealNextHand);
-  }
 
   const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
   const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
@@ -706,6 +704,26 @@ function render() {
   } else {
     resultArea.innerHTML = '';
     hostControls.innerHTML = '';
+  }
+
+  // Deal Next Hand sits to the right of "Hand complete" — measured against
+  // its ACTUAL rendered position rather than a guessed offset, so it moves
+  // correctly regardless of font size or exact text width, and clamped so
+  // it can never end up past the oval's own rim.
+  const nextHandBtn2 = document.getElementById('nextHandBtn2');
+  if (handComplete) {
+    const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
+    const statusRect = document.getElementById('statusLine').getBoundingClientRect();
+    const desiredLeft = statusRect.right + 20;
+    const maxLeft = ovalRect.right - 90; // keep it comfortably inside the rim, not flush against it
+    const clampedLeft = Math.min(desiredLeft, maxLeft);
+    nextHandBtn2.style.left = (clampedLeft - ovalRect.left) + 'px';
+    nextHandBtn2.style.top = (statusRect.top + statusRect.height / 2 - ovalRect.top) + 'px';
+    nextHandBtn2.style.transform = 'translateY(-50%)';
+    nextHandBtn2.style.display = 'inline-block';
+    nextHandBtn2.onclick = dealNextHand;
+  } else {
+    nextHandBtn2.style.display = 'none';
   }
 }
 
