@@ -71,7 +71,7 @@
 </head>
 <body>
 <button id="quitGameBtn" style="position:fixed;top:14px;left:40px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
-<div id="potBadge" style="display:none;position:fixed;top:14px;right:40px;color:#c9a84c;
+<div id="potBadge" style="display:none;position:fixed;top:14px;color:#c9a84c;
   font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:2px solid #c9a84c;z-index:20;"></div>
 
@@ -295,7 +295,22 @@ function dealFirstHand() {
   document.body.style.padding = '0';
   document.getElementById('quitGameBtn').style.top = '14px';
   document.getElementById('jumbo').style.display = 'block';
+  requestAnimationFrame(positionPotBadge); // table isn't laid out until jumbo is actually visible
 }
+
+// Anchors Pot's RIGHT edge to the game window's own measured right edge —
+// not a guessed pixel value — so it can never fall outside the table no
+// matter how the screen crops or scales. A big pot number then grows the
+// badge LEFTWARD (safely inward, toward Leaderboard), never further
+// toward the actual screen edge.
+function positionPotBadge() {
+  const table = document.getElementById('ovalTable');
+  const potBadge = document.getElementById('potBadge');
+  if (!table || !potBadge || document.getElementById('jumbo').style.display === 'none') return;
+  const tableRect = table.getBoundingClientRect();
+  potBadge.style.right = (window.innerWidth - tableRect.right) + 'px';
+}
+window.addEventListener('resize', positionPotBadge);
 
 function startNewHand() {
   revealedBoardLen = 0;
