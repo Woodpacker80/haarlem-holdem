@@ -24,21 +24,8 @@
   table{border-collapse:collapse;font-size:13px;width:100%;}
   th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #1c2338;}
   th{color:#7d8299;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
-  #ovalTable{position:relative;width:100%;height:340px;margin:10px 0;}
-  #ovalFelt{position:absolute;top:8%;left:4%;width:92%;height:84%;border-radius:50%;
-    background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);
-    border:2px solid #c9a84c;box-shadow:inset 0 0 30px rgba(0,0,0,0.45);}
-  .seatPod{position:absolute;transform:translate(-50%,-50%);background:#0d1626;
-    border:1.5px solid #3a3f52;border-radius:10px;padding:8px 10px;text-align:center;
-    min-width:88px;transition:opacity .25s, border-color .25s;}
-  .seatPod.acting{border-color:#c9a84c;box-shadow:0 0 10px rgba(201,168,76,0.5);}
-  .seatPod.folded{opacity:0.4;}
-  .seatPod.allin{border-color:#BE1622;}
-  .seatPod .podName{font-size:12px;color:#e9e2cf;font-weight:600;margin-bottom:4px;white-space:nowrap;}
-  .seatPod .podCards{margin-bottom:4px;}
-  .seatPod .podCards .card{font-size:13px;padding:3px 5px;min-width:20px;margin:0 1px;}
-  .seatPod .podCards .burnCard{width:20px;height:26px;padding:0;margin:0 1px;}
-  .seatPod .podStack{font-size:13px;color:#c9a84c;font-weight:700;}
+  tr.acting{color:#c9a84c;font-weight:700;}
+  tr.folded{color:#3a3f52;text-decoration:line-through;}
   .tag{display:inline-block;font-size:10px;border:1px solid #c9a84c;color:#c9a84c;border-radius:3px;
     padding:0 5px;margin-left:5px;}
   .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
@@ -108,8 +95,8 @@
   <div id="boardArea"></div>
   <div id="resultArea"></div>
   <div id="hostControls" style="text-align:center;margin:6px 0 14px;"></div>
-  <div id="ovalTable">
-    <div id="ovalFelt"></div>
+  <div id="seatTableWrap" style="max-height:280px;overflow-y:auto;">
+    <table id="seatTable"></table>
   </div>
 </div>
 
@@ -579,35 +566,25 @@ function render() {
     document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('') || '<span style="color:#7d8299;">(pre-flop)</span>';
   }
 
-  // Physical seating stays stable by seat NUMBER (not by ranking) — ranking
-  // already has its own home in the leaderboard strip above; jumping seat
-  // POSITIONS around the oval to match rank would be disorienting, since
-  // that's supposed to represent where everyone is actually sitting.
-  const seatOrder = [...h.activeSeats].sort((a, b) => a - b);
-  const N = seatOrder.length;
-  const ovalFelt = document.getElementById('ovalFelt');
-  ovalFelt.innerHTML = '';
-  seatOrder.forEach((seat, i) => {
-    const angleDeg = 90 + i * (360 / N); // seat index 0 starts at the bottom, going clockwise
-    const theta = (angleDeg * Math.PI) / 180;
-    const x = 50 + 46 * Math.cos(theta);
-    const y = 50 + 46 * Math.sin(theta);
+  const rankOf = {};
+  frozenRankOrder.forEach((s, i) => { rankOf[s] = i + 1; });
+
+  const rows = frozenRankOrder.map(seat => {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
-    const isAllIn = h.stacks[seat] === 0 && !folded;
-    const cls = ['seatPod', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
-    const dealerTag = seat === h.dealerSeat ? ' <span class="tag">D</span>' : '';
+    const cls = folded ? 'folded' : (isActing ? 'acting' : '');
+    const dealerTag = seat === h.dealerSeat ? '<span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
-    const pod = document.createElement('div');
-    pod.className = cls;
-    pod.style.left = x + '%';
-    pod.style.top = y + '%';
-    pod.innerHTML = `
-      <div class="podName">${seatLabel(seat)}${dealerTag}</div>
-      <div class="podCards">${cardsHtml}</div>
-      <div class="podStack">${h.stacks[seat]}${isAllIn ? ' (all-in)' : ''}</div>`;
-    ovalFelt.appendChild(pod);
-  });
+    const rankTag = rankOf[seat] + '.';
+    return `<tr class="${cls}">
+      <td>${rankTag} ${seatLabel(seat)}${dealerTag}</td>
+      <td>${cardsHtml}</td>
+      <td>${h.stacks[seat]}</td>
+      <td>${folded ? 'folded' : (h.stacks[seat] === 0 ? 'all-in' : '')}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('seatTable').innerHTML =
+    `<tr><th>Ranking</th><th>Cards</th><th>Stack</th><th>Status</th></tr>${rows}`;
 
   const resultArea = document.getElementById('resultArea');
   const hostControls = document.getElementById('hostControls');
