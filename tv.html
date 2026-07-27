@@ -16,7 +16,10 @@
   button{background:transparent;border:2px solid #c9a84c;color:#c9a84c;padding:12px 22px;
     border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
   button:hover{background:rgba(201,168,76,0.15);}
-  button:disabled{opacity:0.3;cursor:default;}
+  button:disabled{cursor:default;border-color:#3a3f52 !important;color:#3a3f52 !important;}
+  #startBtn{width:140px;height:140px;border:2px solid #c9a84c;color:#c9a84c;
+    border-radius:8px;font-weight:600;box-sizing:border-box;transition:background .2s;}
+  #startBtn:not(:disabled):hover{background:rgba(201,168,76,0.1);}
   #conn{font-size:11px;letter-spacing:.05em;text-transform:uppercase;}
   #conn.bad{color:#BE1622;} #conn.good{color:#3fbf6f;}
   #jumbo{width:80vw;max-width:900px;border:2px solid #c9a84c;border-radius:16px;
@@ -114,7 +117,10 @@
         width="140" height="140" alt="QR code to join on your phone"
         style="border-radius:8px;border:2px solid #c9a84c;background:#fff;padding:8px;">
     </div>
-    <button id="startBtn" disabled style="width:140px;height:140px;border:2px solid #c9a84c;color:#c9a84c;box-sizing:border-box;">Start Game</button>
+    <div style="text-align:center;">
+      <div style="font-size:12px;margin-bottom:8px;visibility:hidden;">spacer</div>
+      <button id="startBtn" disabled>Start Game</button>
+    </div>
   </div>
 </div>
 
