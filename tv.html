@@ -563,7 +563,7 @@ function render() {
   const rankOf = {};
   frozenRankOrder.forEach((s, i) => { rankOf[s] = i + 1; });
 
-  const rows = h.activeSeats.map(seat => {
+  const rows = frozenRankOrder.map(seat => {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
     const cls = folded ? 'folded' : (isActing ? 'acting' : '');
