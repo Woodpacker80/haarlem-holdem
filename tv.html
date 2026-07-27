@@ -476,6 +476,11 @@ document.getElementById('helpBtn').addEventListener('click', () => {
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 
+document.getElementById('leaderboardBtn').addEventListener('click', () => {
+  const panel = document.getElementById('leaderboard');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+
 document.getElementById('quitGameBtn').addEventListener('click', async () => {
   handState = null;
   gameConfig = null;
