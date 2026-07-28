@@ -45,13 +45,16 @@
     border:2px solid #2a1005;box-shadow:inset 0 0 40px rgba(0,0,0,0.5);}
   #tableCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     text-align:center;max-width:64%;z-index:10;}
-  .chipPile{position:absolute;transform:translate(-50%,-50%);width:26px;height:50px;
-    z-index:8;pointer-events:none;transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
-  .chipPile .chip{position:absolute;left:0;width:26px;height:26px;border-radius:50%;
-    border:2px solid rgba(255,255,255,0.15);box-shadow:0 2px 2px rgba(0,0,0,0.5);}
-  .chipPile .chip:nth-child(1){bottom:0;background:#8B1E1E;}
-  .chipPile .chip:nth-child(2){bottom:8px;background:#151515;}
-  .chipPile .chip:nth-child(3){bottom:16px;background:#c9a84c;}
+  .chipPile{position:absolute;transform:translate(-50%,-50%);display:flex;gap:3px;
+    align-items:flex-end;z-index:8;pointer-events:none;
+    transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
+  .chipStack{position:relative;width:16px;height:44px;}
+  .chipStack .chip{position:absolute;left:0;width:16px;height:16px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,0.15);box-shadow:0 1px 2px rgba(0,0,0,0.5);}
+  .chipStack.red .chip{background:#8B1E1E;}
+  .chipStack.black .chip{background:#151515;}
+  .chipStack.green .chip{background:#1a5c2e;}
+  .chipStack.gold .chip{background:#c9a84c;}
   .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
     background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
     padding:6px 9px;text-align:center;min-width:78px;
@@ -750,15 +753,23 @@ function render() {
       pile.className = 'chipPile';
       pile.style.left = signX + '%';
       pile.style.top = signY + '%';
-      pile.innerHTML = '<div class="chip"></div><div class="chip"></div><div class="chip"></div>';
+      const stacks = [['red', 2], ['black', 5], ['green', 4], ['gold', 3]];
+      pile.innerHTML = stacks.map(([color, count]) => {
+        const chips = Array.from({ length: count }, (_, c) =>
+          `<div class="chip" style="bottom:${c * 5}px;"></div>`).join('');
+        return `<div class="chipStack ${color}">${chips}</div>`;
+      }).join('');
       ovalTable.appendChild(pile);
+      // Only travel HALFWAY toward the center, not all the way — the
+      // midpoint between the seat and dead-center.
+      const halfwayX = (signX + 50) / 2, halfwayY = (signY + 50) / 2;
       // Set the starting position first, THEN change it on the next paint —
       // changing both in the same tick would skip the transition entirely,
       // since the browser batches style changes before the first paint.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          pile.style.left = '50%';
-          pile.style.top = '50%';
+          pile.style.left = halfwayX + '%';
+          pile.style.top = halfwayY + '%';
         });
       });
     }
