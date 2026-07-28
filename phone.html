@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Haarlem Hold'em — Phone</title>
 <script src="sfx.js"></script>
+<script src="card-art.js"></script>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#0F2A55;color:#e9e2cf;
     font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
@@ -18,8 +19,8 @@
   .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
     padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
   .card.red{color:#BE1622;}
-  #myHand{text-align:center;}
-  #myHand .card{font-size:22px;padding:8px 12px;}
+  .holeCardImg{width:70px;height:98px;margin:0 4px;border-radius:6px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.4);user-select:none;-webkit-user-drag:none;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -56,7 +57,11 @@
 <div id="gameArea" style="display:none;">
 <div id="board"></div>
 <div id="info"></div>
-<div id="myHand"></div>
+<div id="myHand" style="text-align:center;touch-action:none;">
+  <img id="holeCard0" class="holeCardImg">
+  <img id="holeCard1" class="holeCardImg">
+  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:4px;">Hold to peek</div>
+</div>
 <div id="actions"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
@@ -75,6 +80,24 @@ let latestPublicState = null;
 let wasDisconnected = false;
 
 let unsubscribeHoleCards = null;
+
+// Hold-to-peek: cards default to face-down and only reveal for as long as a
+// finger is actually touching them — released the instant you let go. This
+// replaces the squeeze mechanic (reverted — too much for a small screen) with
+// something far simpler that solves the same real need: checking your hand
+// in a group without anyone else catching a glimpse.
+const backDataUrl = CardArt.renderBack(256).toDataURL();
+let faceDataUrls = [backDataUrl, backDataUrl]; // real cards fill this in once dealt
+function setPeek(peeking) {
+  document.getElementById('holeCard0').src = peeking ? faceDataUrls[0] : backDataUrl;
+  document.getElementById('holeCard1').src = peeking ? faceDataUrls[1] : backDataUrl;
+}
+setPeek(false);
+const myHandEl = document.getElementById('myHand');
+myHandEl.addEventListener('pointerdown', () => setPeek(true));
+myHandEl.addEventListener('pointerup', () => setPeek(false));
+myHandEl.addEventListener('pointercancel', () => setPeek(false));
+myHandEl.addEventListener('pointerleave', () => setPeek(false));
 // Single place that "becomes" a given seat: updates mySeat, the on-screen
 // badge, and — importantly — re-subscribes the hole-cards listener to the
 // correct path. Without this, if a rejoin ever landed on a DIFFERENT seat
@@ -87,7 +110,15 @@ function adoptSeat(seat) {
   document.getElementById('seatBadge').textContent = `You are Seat ${mySeat + 1}`;
   if (unsubscribeHoleCards) unsubscribeHoleCards();
   unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
-    document.getElementById('myHand').innerHTML = cards ? cards.map(renderCard).join('') : '<span style="color:#7d8299;font-size:12px;">waiting for the deal…</span>';
+    if (cards) {
+      const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
+      faceDataUrls = cards.map(c => CardArt.renderFace(c.rank, suitName[c.suit], 256).toDataURL());
+      document.getElementById('handHint').textContent = 'Hold to peek';
+    } else {
+      faceDataUrls = [backDataUrl, backDataUrl];
+      document.getElementById('handHint').textContent = 'waiting for the deal…';
+    }
+    setPeek(false); // new cards always start hidden, never auto-revealed
   });
 }
 
@@ -184,7 +215,7 @@ function render(state) {
   // missing from what actually arrives here, crashing every `.map()` /
   // `.includes()` call below. Normalizing once here means every usage
   // after this point can safely assume a real array exists.
-  state = { ...state, board: state.board || [], foldedSeats: state.foldedSeats || [], bets: state.bets || {} };
+  state = { ...state, board: state.board || [], foldedSeats: state.foldedSeats || [] };
 
   document.getElementById('board').innerHTML = state.board.map(renderCard).join('') || '<span style="color:#7d8299;font-size:12px;">pre-flop</span>';
 
