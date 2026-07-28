@@ -215,7 +215,7 @@ function render(state) {
     // The TV is the real authority on the 5-second auto-muck timer — this
     // countdown is purely informational, so a slow phone can't break
     // enforcement, only its own on-screen number might drift slightly.
-    const label = myRevealTurn ? 'Show or muck your hand?' : 'Show your hand? (optional — you already won the pot)';
+    const label = myRevealTurn ? 'Show or muck your hand?' : 'Show your hand?';
     actionsEl.innerHTML = `
       <div style="width:100%;text-align:center;color:#c9a84c;margin-bottom:8px;">${label}
         <span id="revealCountdown" style="color:#7d8299;font-weight:normal;"></span></div>
