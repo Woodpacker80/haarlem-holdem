@@ -807,31 +807,37 @@ function render() {
     hostControls.innerHTML = '';
   } else if (h.result && revealCaughtUp) {
     const potsHtml = h.result.pots.map((p, i) => {
-      const eligibleSet = new Set(p.eligibleSeats);
-      // Walk the ranking (best hand first) and take the FIRST group that has
-      // any member eligible for THIS pot — that's the winning tier for this
-      // specific pot. If more than one seat in that tier is eligible here,
-      // it's a genuine tie WITHIN this pot's own contest, not just "multiple
-      // names happen to have a nonzero total payout" (which could also be
-      // true for an unrelated side pot, or for an uncalled bet simply being
-      // returned — neither of those is a real split).
-      let winningGroup = null;
-      if (h.result.ranking) {
-        for (const group of h.result.ranking) {
-          const inThisPot = group.filter(e => eligibleSet.has(e.seat));
-          if (inThisPot.length > 0) { winningGroup = inThisPot; break; }
-        }
-      }
       let wonByHtml;
-      if (winningGroup) {
-        const isSplit = winningGroup.length > 1;
-        const share = Math.floor(p.amount / winningGroup.length);
-        wonByHtml = (isSplit ? '<span class="splitTag">Split Pot! </span>' : '') +
-          winningGroup.map(({ seat, hand }) =>
-            seatLabel(seat) + ' (' + share + ')' + (hand ? ' with ' + describeHand(hand) : '')
-          ).join(', ');
-      } else {
-        // Uncontested win — no ranking exists at all, just one winner by default.
+      try {
+        const eligibleSet = new Set(p.eligibleSeats);
+        // Walk the ranking (best hand first) and take the FIRST group that has
+        // any member eligible for THIS pot — that's the winning tier for this
+        // specific pot. If more than one seat in that tier is eligible here,
+        // it's a genuine tie WITHIN this pot's own contest, not just "multiple
+        // names happen to have a nonzero total payout" (which could also be
+        // true for an unrelated side pot, or for an uncalled bet simply being
+        // returned — neither of those is a real split).
+        let winningGroup = null;
+        if (h.result.ranking) {
+          for (const group of h.result.ranking) {
+            const inThisPot = group.filter(e => eligibleSet.has(e.seat));
+            if (inThisPot.length > 0) { winningGroup = inThisPot; break; }
+          }
+        }
+        if (winningGroup) {
+          const isSplit = winningGroup.length > 1;
+          const share = Math.floor(p.amount / winningGroup.length);
+          wonByHtml = (isSplit ? '<span class="splitTag">Split Pot! </span>' : '') +
+            winningGroup.map(({ seat, hand }) =>
+              seatLabel(seat) + ' (' + share + ')' + (hand ? ' with ' + describeHand(hand) : '')
+            ).join(', ');
+        } else {
+          throw new Error('no winning group found for this pot');
+        }
+      } catch (e) {
+        // Fall back to the plain payout list — never let a pot-display edge
+        // case crash the whole render and leave the game stuck.
+        console.error('Pot display fallback:', e);
         wonByHtml = Object.entries(h.result.payouts).filter(([, a]) => a > 0)
           .map(([s, a]) => seatLabel(Number(s)) + ' (' + a + ')').join(', ');
       }
