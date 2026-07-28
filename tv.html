@@ -376,6 +376,16 @@ function publish() {
   } catch (e) {
     document.getElementById('tvError').textContent = '⚠ publish crashed: ' + e.message;
     console.error(e);
+    // Never let a display bug leave the game genuinely stuck — if a hand
+    // actually finished (handState.result exists) but something above
+    // crashed before showing it properly, guarantee a way to move on.
+    if (handState && handState.result) {
+      const hostControls = document.getElementById('hostControls');
+      if (hostControls) {
+        hostControls.innerHTML = '<button id="nextHandBtnFallback">Deal Next Hand</button>';
+        document.getElementById('nextHandBtnFallback').addEventListener('click', dealNextHand);
+      }
+    }
   }
 }
 
