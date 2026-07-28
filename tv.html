@@ -27,6 +27,16 @@
   table{border-collapse:collapse;font-size:13px;width:100%;}
   th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #1c2338;}
   #ovalTable{position:relative;width:96%;height:380px;margin:50px auto 0;}
+  #leaderboardSidebar{position:fixed;top:0;bottom:0;left:0;width:260px;
+    background:rgba(10,15,30,0.94);border-right:2px solid #c9a84c;
+    transform:translateX(-100%);transition:transform .3s;z-index:15;
+    padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;}
+  #leaderboardSidebar.open{transform:translateX(0);}
+  .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
+    border-bottom:1px solid #3a3f52;font-size:14px;}
+  .lbRank{color:#c9a84c;font-weight:700;width:22px;}
+  .lbName{flex:1;color:#e9e2cf;}
+  .lbStack{color:#c9a84c;font-weight:600;}
   #ovalRim{position:absolute;inset:0;border-radius:50%;
     background:linear-gradient(135deg, #e0c26a 0%, #c9a84c 55%, #8a6d2e 100%);
     box-shadow:0 0 40px rgba(0,0,0,0.5);}
@@ -59,7 +69,6 @@
   @keyframes burnPulse{0%,100%{opacity:0.65;}50%{opacity:1;}}
   #boardArea{text-align:center;margin-bottom:16px;min-height:50px;}
   #leaderboard{text-align:center;margin-bottom:10px;font-size:13px;color:#c9c4b0;}
-  #leaderboard .rank1{color:#c9a84c;font-weight:600;}
   #statusLine{font-size:15px;color:#c9a84c;text-align:center;margin-bottom:14px;}
   #actionLog{max-width:560px;margin:0 auto 14px;font-size:13px;color:#c9c4b0;
     min-height:18px;line-height:1.6;display:flex;align-items:center;justify-content:center;gap:18px;}
@@ -194,9 +203,9 @@
 <div id="jumbo" style="display:none;width:100%;align-self:flex-start;position:relative;">
   <div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;">
     <button id="leaderboardBtn" type="button" style="font-size:11px;padding:6px 14px;">Leaderboard</button>
-    <div id="leaderboard" style="display:none;margin-top:8px;background:rgba(0,0,0,0.55);
-      border:1px solid #3a3f52;border-radius:8px;padding:8px 16px;"></div>
   </div>
+
+  <div id="leaderboardSidebar"></div>
 
   <div id="ovalTable">
     <div id="ovalRim"></div>
@@ -559,8 +568,7 @@ document.getElementById('helpBtn').addEventListener('click', () => {
 });
 
 document.getElementById('leaderboardBtn').addEventListener('click', () => {
-  const panel = document.getElementById('leaderboard');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('leaderboardSidebar').classList.toggle('open');
 });
 
 document.getElementById('quitGameBtn').addEventListener('click', async () => {
@@ -575,7 +583,7 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
-  document.getElementById('leaderboard').innerHTML = '';
+  document.getElementById('leaderboardSidebar').innerHTML = '';
 });
 
 // 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
@@ -601,7 +609,7 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
-  document.getElementById('leaderboard').innerHTML = '';
+  document.getElementById('leaderboardSidebar').innerHTML = '';
 });
 
 // Burn-card tension effect: whenever the board has grown beyond what's
@@ -688,9 +696,12 @@ function render() {
   // Leaderboard: ranked by CURRENT chip count, this session only.
   const ranked = frozenRankOrder;
   const medal = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-  document.getElementById('leaderboard').innerHTML = ranked.map((seat, i) =>
-    `<span style="margin:0 12px;" class="${i === 0 ? 'rank1' : ''}">${medal[i] || ('#' + (i + 1))} ${seatLabel(seat)} \u2014 ${h.stacks[seat]}</span>`
-  ).join('');
+  document.getElementById('leaderboardSidebar').innerHTML = ranked.map((seat, i) => `
+    <div class="lbRow">
+      <span class="lbRank">${medal[i] || ('#' + (i + 1))}</span>
+      <span class="lbName">${seatLabel(seat)}</span>
+      <span class="lbStack">${h.stacks[seat]}</span>
+    </div>`).join('');
 
   const handComplete = h.result && revealCaughtUp;
   document.getElementById('statusLine').textContent = h.result
