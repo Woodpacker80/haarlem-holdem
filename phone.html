@@ -160,6 +160,7 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
     document.getElementById('debug').textContent = 'mySeat=' + mySeat + ' | raw state: ' + JSON.stringify(state);
     try {
       render(state);
+      document.getElementById('error').textContent = '';
     } catch (e) {
       document.getElementById('error').textContent = '⚠ render crashed: ' + e.message;
       console.error(e);
