@@ -113,10 +113,18 @@ function setPeek(peeking) {
 }
 setPeek(false);
 const peekBtn = document.getElementById('peekBtn');
-peekBtn.addEventListener('pointerdown', () => setPeek(true));
-peekBtn.addEventListener('pointerup', () => setPeek(false));
-peekBtn.addEventListener('pointercancel', () => setPeek(false));
-peekBtn.addEventListener('pointerleave', () => setPeek(false));
+let peekHideTimer = null;
+function hidePeekAfterDelay() {
+  if (peekHideTimer) clearTimeout(peekHideTimer);
+  peekHideTimer = setTimeout(() => setPeek(false), 1200); // stays visible a moment after release
+}
+peekBtn.addEventListener('pointerdown', () => {
+  if (peekHideTimer) clearTimeout(peekHideTimer); // pressing again cancels any pending hide
+  setPeek(true);
+});
+peekBtn.addEventListener('pointerup', hidePeekAfterDelay);
+peekBtn.addEventListener('pointercancel', hidePeekAfterDelay);
+peekBtn.addEventListener('pointerleave', hidePeekAfterDelay);
 // Single place that "becomes" a given seat: updates mySeat, the on-screen
 // badge, and — importantly — re-subscribes the hole-cards listener to the
 // correct path. Without this, if a rejoin ever landed on a DIFFERENT seat
@@ -142,6 +150,7 @@ function adoptSeat(seat) {
     } else {
       document.getElementById('handHint').textContent = 'waiting for the deal…';
     }
+    if (peekHideTimer) clearTimeout(peekHideTimer);
     setPeek(false); // new cards always start hidden, never auto-revealed
   });
 }

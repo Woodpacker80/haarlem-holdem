@@ -185,6 +185,40 @@
     ctx.restore();
   }
 
+  // Bigger index sizing for the bold phone variant — genuinely larger
+  // percentages, not just a bigger source canvas (which doesn't change the
+  // proportion at all). Kept separate from drawIndices/the constants above
+  // so the frozen squeeze demo's sizing is completely unaffected.
+  function drawIndicesBold(ctx, size, rankText, suitSymbol, color) {
+    const m = size * 0.02;
+    const rankSize = size * 0.16;
+    const suitSize = size * 0.12;
+    const gap = size * 0.012;
+    const { blockWidth, blockHeight } = measureBlock(ctx, rankText, suitSymbol, rankSize, suitSize, gap);
+
+    ctx.save();
+    ctx.translate(m, m);
+    drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(size - m - blockWidth, m);
+    drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(m, size - m - blockHeight + blockHeight);
+    ctx.scale(1, -1);
+    drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(size - m - blockWidth, size - m - blockHeight + blockHeight);
+    ctx.scale(1, -1);
+    drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
+    ctx.restore();
+  }
+
   function renderFaceBold(rank, suit, size = 512) {
     const suitDef = SUITS[suit];
     if (!suitDef) throw new Error(`Unknown suit: ${suit}`);
@@ -198,7 +232,7 @@
     ctx.fillRect(0, 0, size, size);
 
     drawCenterMotifBold(ctx, size, suitDef.symbol, suitDef.color);
-    drawIndices(ctx, size, String(rank), suitDef.symbol, suitDef.color);
+    drawIndicesBold(ctx, size, String(rank), suitDef.symbol, suitDef.color);
 
     return canvas;
   }
