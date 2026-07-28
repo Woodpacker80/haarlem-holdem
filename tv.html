@@ -45,6 +45,13 @@
     border:2px solid #2a1005;box-shadow:inset 0 0 40px rgba(0,0,0,0.5);}
   #tableCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     text-align:center;max-width:64%;z-index:10;}
+  .chipPile{position:absolute;transform:translate(-50%,-50%);width:26px;height:50px;
+    z-index:8;pointer-events:none;transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
+  .chipPile .chip{position:absolute;left:0;width:26px;height:26px;border-radius:50%;
+    border:2px solid rgba(255,255,255,0.15);box-shadow:0 2px 2px rgba(0,0,0,0.5);}
+  .chipPile .chip:nth-child(1){bottom:0;background:#8B1E1E;}
+  .chipPile .chip:nth-child(2){bottom:8px;background:#151515;}
+  .chipPile .chip:nth-child(3){bottom:16px;background:#c9a84c;}
   .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
     background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
     padding:6px 9px;text-align:center;min-width:78px;
@@ -246,6 +253,7 @@ let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, b
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
+let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
 let rankingSyncedForResult = false; // whether frozenRankOrder already reflects the CURRENT hand's own result
 watchPlayerNames((names) => { playerNames = names; render(); });
 
@@ -411,6 +419,8 @@ function startNewHand() {
   currentStreetLabel = '';
   clearRevealTimer();
   clearVoluntaryTimer();
+  allInAnimated = {};
+  document.querySelectorAll('.chipPile').forEach(el => el.remove());
   // Ranking is frozen for the whole hand, computed ONCE here from standings
   // as they were entering this hand (before blinds) — recomputing it live
   // during betting would mean the leaderboard/table flicker and reshuffle
@@ -734,6 +744,24 @@ function render() {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
     const isAllIn = h.stacks[seat] === 0 && !folded;
+    if (isAllIn && !allInAnimated[seat]) {
+      allInAnimated[seat] = true;
+      const pile = document.createElement('div');
+      pile.className = 'chipPile';
+      pile.style.left = signX + '%';
+      pile.style.top = signY + '%';
+      pile.innerHTML = '<div class="chip"></div><div class="chip"></div><div class="chip"></div>';
+      ovalTable.appendChild(pile);
+      // Set the starting position first, THEN change it on the next paint —
+      // changing both in the same tick would skip the transition entirely,
+      // since the browser batches style changes before the first paint.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          pile.style.left = '50%';
+          pile.style.top = '50%';
+        });
+      });
+    }
     const dealerTag = seat === h.dealerSeat ? ' <span class="tag">D</span>' : '';
     const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
 
