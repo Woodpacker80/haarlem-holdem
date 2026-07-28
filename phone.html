@@ -39,7 +39,8 @@
   #error{color:#BE1622;font-size:11px;min-height:14px;}
   #gameArea{width:100%;max-width:340px;border:1.5px solid #c9a84c;border-radius:14px;
     background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);
-    padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+    padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;
+    -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 </style>
 </head>
 <body>
@@ -68,7 +69,7 @@
     <img id="holeCard1Back" class="holeCardImg">
     <img id="holeCard1Face" class="holeCardImg" style="display:none;">
   </div>
-  <div><button id="peekBtn" type="button" style="touch-action:none;margin-top:8px;-webkit-tap-highlight-color:transparent;">Hold to Peek</button></div>
+  <div><button id="peekBtn" type="button" style="touch-action:none;margin-top:8px;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;">Hold to Peek</button></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:4px;"></div>
 </div>
 <div id="actions"></div>
