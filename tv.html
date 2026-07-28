@@ -91,16 +91,83 @@
   <div id="helpPanel" style="display:none;max-width:560px;margin:4px auto 8px;padding:14px 18px;
     border:1px solid #3a3f52;border-radius:10px;background:rgba(255,255,255,0.03);
     font-size:13px;line-height:1.7;color:#c9c4b0;">
-    <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Host controls</div>
-    <div><b>Quit Game</b> — stops the current hand and returns to the lobby. Doesn't kick anyone.</div>
-    <div><b>Clear All Bans</b> — lets anyone previously kicked rejoin.</div>
-    <div><b>Start New Game</b> — clears every seat right now, including a phone left open in
-      the background, so the next game starts genuinely empty.</div>
-    <div style="color:#c9a84c;font-weight:600;margin:12px 0 6px;">Poker basics</div>
-    <div>Each player gets 2 hole cards. Betting happens before the flop, then after the flop
-      (3 shared cards), the turn (1 more), and the river (1 more) — best 5-card hand wins.</div>
-    <div style="margin-top:6px;">Hand ranking, best to worst: Straight Flush, Four of a Kind,
-      Full House, Flush, Straight, Three of a Kind, Two Pair, Pair, High Card.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Setup</div>
+    <div>1. <b>Connect the TV</b> — open this page on your TV or tablet. It becomes the dealer.</div>
+    <div>2. <b>Players join</b> — scan the QR code (or open the link) on your own phone, and enter your name.</div>
+    <div>3. <b>Host starts</b> — once everyone's seated, tap <b>Start Game</b>.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Host controls</div>
+    <div><b>Kick</b> (seat list) — removes a specific player from their seat and blocks their phone from
+      automatically rejoining that seat. Use this if the wrong person joined, someone had to leave, or a
+      phone needs to be freed up for someone else. Kicks don't expire on their own — they stay in place
+      until you lift them.</div>
+    <div style="margin-top:6px;"><b>Clear All Bans</b> — lifts every kick from the previous game, all at once,
+      so anyone can rejoin.</div>
+    <div style="margin-top:6px;"><b>Start New Game</b> — clears every seat immediately, including a phone left
+      open in the background, so the next game starts genuinely empty.</div>
+    <div style="margin-top:6px;"><b>Quit Game</b> — stops the current hand and returns to the lobby. Doesn't
+      kick anyone.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">How to Play</div>
+    <div>Each player gets 2 hole cards, face-down, visible only on their own phone. Betting happens before
+      the flop, then after the flop (3 shared cards appear), the turn (1 more), and the river (1 more).
+      Best 5-card hand wins.</div>
+
+    <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Hand ranking, best to worst:</div>
+
+    <div style="margin-top:8px;"><b>1. Straight Flush</b> — 5 cards in a row, all the same suit<br>
+      <span class="card red">10♥</span><span class="card red">J♥</span><span class="card red">Q♥</span><span class="card red">K♥</span><span class="card red">A♥</span>
+      <span style="color:#7d8299;"> (a Royal Flush — the best possible straight flush)</span><br>
+      <span style="color:#7d8299;">Higher top card wins — a Jack-high straight flush beats a 9-high one.</span></div>
+
+    <div style="margin-top:10px;"><b>2. Four of a Kind</b> — 4 cards of the same rank<br>
+      <span class="card">7♠</span><span class="card red">7♥</span><span class="card red">7♦</span><span class="card">7♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">Higher rank wins — four Kings beats four Sevens.</span></div>
+
+    <div style="margin-top:10px;"><b>3. Full House</b> — 3 of a kind plus a pair<br>
+      <span class="card">K♠</span><span class="card red">K♥</span><span class="card red">K♦</span><span class="card">4♣</span><span class="card">4♠</span><br>
+      <span style="color:#7d8299;">The three-of-a-kind rank decides it first — Kings-full-of-Fours beats Nines-full-of-Aces.</span></div>
+
+    <div style="margin-top:10px;"><b>4. Flush</b> — 5 cards, all the same suit, not in order<br>
+      <span class="card">2♠</span><span class="card">6♠</span><span class="card">9♠</span><span class="card">J♠</span><span class="card">K♠</span><br>
+      <span style="color:#7d8299;">Compared card-by-card from highest down — the flush with the higher top card wins.</span></div>
+
+    <div style="margin-top:10px;"><b>5. Straight</b> — 5 cards in a row, mixed suits<br>
+      <span class="card red">4♥</span><span class="card">5♠</span><span class="card red">6♦</span><span class="card">7♣</span><span class="card">8♠</span><br>
+      <span style="color:#7d8299;">Higher top card wins — an 8-high straight beats a 7-high one.</span></div>
+
+    <div style="margin-top:10px;"><b>6. Three of a Kind</b> — 3 cards of the same rank<br>
+      <span class="card">9♠</span><span class="card red">9♥</span><span class="card red">9♦</span><span class="card">3♣</span><span class="card">K♠</span><br>
+      <span style="color:#7d8299;">Higher rank wins — three Nines beats three Fours.</span></div>
+
+    <div style="margin-top:10px;"><b>7. Two Pair</b> — 2 separate pairs<br>
+      <span class="card">J♠</span><span class="card red">J♥</span><span class="card red">5♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">The higher pair decides it first, then the lower pair.</span></div>
+
+    <div style="margin-top:10px;"><b>8. Pair</b> — 2 cards of the same rank<br>
+      <span class="card">Q♠</span><span class="card red">Q♥</span><span class="card red">7♦</span><span class="card">4♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">Higher pair wins — a pair of Queens beats a pair of Sevens.</span></div>
+
+    <div style="margin-top:10px;margin-bottom:14px;"><b>9. High Card</b> — no combination, highest single card wins<br>
+      <span class="card">A♠</span><span class="card red">K♥</span><span class="card red">9♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">If the top card ties, the next-highest card decides it, and so on.</span></div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Show or Muck</div>
+    <div>At showdown, you don't always have to reveal your cards. The player who bet or raised last has to
+      show first — everyone after that gets to choose Show or Muck. Mucking hides your hand for good — even
+      if it would have won, nobody ever sees it. Your secrets are safe, win or lose.</div>
+    <div style="margin-top:6px;color:#7d8299;">One exception: if a hand goes all the way to showdown with an
+      all-in on the table, everyone shows — no mucking, per standard rules.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:16px 0 6px;">About Haarlem Hold'em</div>
+    <div>Designed and built in Haarlem, the Netherlands, 2026.</div>
+    <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">The Team</div>
+    <div>Mark Oddens — Design &amp; Direction</div>
+    <div>Claude (Anthropic) — Development</div>
+    <div>Gemini (Google) — Technical Review</div>
+    <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Powered By</div>
+    <div>Three.js &amp; Google Firebase</div>
   </div>
 </div>
 
