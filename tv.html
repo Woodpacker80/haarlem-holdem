@@ -491,9 +491,12 @@ function applyVoluntaryReveal(seat, decision) {
 // each phone, so it can't be affected by a phone lagging or backgrounding.
 let revealTimerHandle = null;
 let revealTimerSeat = null;
+let revealWarnHandle = null;
 function clearRevealTimer() {
   if (revealTimerHandle) clearTimeout(revealTimerHandle);
+  if (revealWarnHandle) clearTimeout(revealWarnHandle);
   revealTimerHandle = null;
+  revealWarnHandle = null;
   revealTimerSeat = null;
 }
 function ensureRevealTimer() {
@@ -503,7 +506,8 @@ function ensureRevealTimer() {
   if (revealTimerSeat === targetSeat) return; // already running for this exact turn
   clearRevealTimer();
   revealTimerSeat = targetSeat;
-  revealTimerHandle = setTimeout(() => applyReveal(targetSeat, 'muck'), 5000);
+  revealWarnHandle = setTimeout(() => SFX.decisionWarning(), 3000); // 3 seconds before it auto-mucks
+  revealTimerHandle = setTimeout(() => applyReveal(targetSeat, 'muck'), 6000);
 }
 
 let voluntaryTimerHandle = null;

@@ -109,5 +109,14 @@
     getCtx();
   }
 
-  global.SFX = { cardFlip, win, fold, checkCall, raise, unlock };
+  // A gentle heads-up that a decision window is about to close (muck/show
+  // countdown). Deliberately a single, calm tone — not a repeating tick —
+  // since the point is a quiet reminder, not urgency. Every cue in this
+  // file so far is a one-shot sound, never an alarm-style repeat; this
+  // keeps that same subtle character rather than introducing a new one.
+  function decisionWarning() {
+    tone({ freq: 480, duration: 0.2, type: 'triangle', gain: 0.08 });
+  }
+
+  global.SFX = { cardFlip, win, fold, checkCall, raise, unlock, decisionWarning };
 })(typeof window !== 'undefined' ? window : globalThis);
