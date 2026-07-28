@@ -95,20 +95,21 @@ watchConnection((connected) => {
   connEl.textContent = connected ? 'connected' : 'disconnected';
   connEl.className = connected ? 'good' : 'bad';
 
-  // BUG FIX: a brief disconnect (screen lock, backgrounded tab, wifi blip —
-  // all common on a phone) triggers the onDisconnect cleanup that frees
-  // this seat in Firebase, so the TV correctly stops seeing this player as
-  // joined. But this phone's own `mySeat` variable never noticed — it kept
-  // showing whatever it last received, looking "stuck" on an old hand,
-  // with no way to rejoin except manually reloading the page. Re-claiming
-  // the seat the moment a REAL disconnect->reconnect happens (tracked
-  // directly, rather than guessing from a "first load" flag that could
-  // race against ensureAuth() still being in flight) closes that gap.
+  // A brief disconnect (screen lock, backgrounded tab, wifi blip — all
+  // common on a phone) triggers the onDisconnect cleanup that frees this
+  // seat in Firebase. On reconnect, deliberately show the name gate again
+  // rather than silently re-claiming the old name — every reconnect gets a
+  // fresh name prompt, by design. The SEAT itself is still guaranteed to
+  // come back (claimSeat below finds this phone's existing seat by uid,
+  // regardless of what name gets typed this time), so nothing about
+  // rejoining the table is lost — only the name is never auto-reused.
   if (!connected) {
     wasDisconnected = true;
   } else if (wasDisconnected && myUid) {
     wasDisconnected = false;
-    claimSeat(myUid).then((seat) => { if (seat !== null) adoptSeat(seat); });
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('nameGate').style.display = 'flex';
+    document.getElementById('nameInput').value = '';
   }
 });
 
