@@ -168,11 +168,47 @@
     return canvas;
   }
 
+  // Bold, fully-opaque variant of renderFace — for contexts that need the
+  // card instantly readable at a glance (the phone's hold-to-peek), rather
+  // than the original's deliberately subtle center motif (0.16 alpha, tuned
+  // for the 3D squeeze demo's curl reveal, where a dramatic gradual unveil
+  // is the whole point). This is a SEPARATE function so index.html's frozen
+  // squeeze demo keeps its original look untouched.
+  function drawCenterMotifBold(ctx, size, suitSymbol, color) {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.font = `700 ${size * 0.42}px ${FONT_FAMILY}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(suitSymbol, size / 2, size / 2);
+    ctx.restore();
+  }
+
+  function renderFaceBold(rank, suit, size = 512) {
+    const suitDef = SUITS[suit];
+    if (!suitDef) throw new Error(`Unknown suit: ${suit}`);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = FACE_BG;
+    ctx.fillRect(0, 0, size, size);
+
+    drawCenterMotifBold(ctx, size, suitDef.symbol, suitDef.color);
+    drawIndices(ctx, size, String(rank), suitDef.symbol, suitDef.color);
+
+    return canvas;
+  }
+
   const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const SUIT_NAMES = ['spades', 'hearts', 'diamonds', 'clubs'];
 
   global.CardArt = {
     renderFace,
+    renderFaceBold,
     renderBack,
     RANKS,
     SUIT_NAMES,

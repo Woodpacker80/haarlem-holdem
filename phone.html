@@ -130,10 +130,15 @@ function adoptSeat(seat) {
   if (unsubscribeHoleCards) unsubscribeHoleCards();
   unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
     if (cards) {
-      const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
-      document.getElementById('holeCard0Face').src = CardArt.renderFace(cards[0].rank, suitName[cards[0].suit], 400).toDataURL();
-      document.getElementById('holeCard1Face').src = CardArt.renderFace(cards[1].rank, suitName[cards[1].suit], 400).toDataURL();
-      document.getElementById('handHint').textContent = '';
+      try {
+        const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
+        document.getElementById('holeCard0Face').src = CardArt.renderFaceBold(cards[0].rank, suitName[cards[0].suit], 400).toDataURL();
+        document.getElementById('holeCard1Face').src = CardArt.renderFaceBold(cards[1].rank, suitName[cards[1].suit], 400).toDataURL();
+        document.getElementById('handHint').textContent = '';
+      } catch (e) {
+        document.getElementById('error').textContent = '⚠ card render failed: ' + e.message;
+        console.error('Hole card render failed:', e);
+      }
     } else {
       document.getElementById('handHint').textContent = 'waiting for the deal…';
     }
