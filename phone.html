@@ -19,8 +19,9 @@
   .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
     padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
   .card.red{color:#BE1622;}
-  .holeCardImg{width:88px;height:88px;margin:0 4px;border-radius:6px;
-    box-shadow:0 2px 4px rgba(0,0,0,0.4);user-select:none;-webkit-user-drag:none;}
+  .holeCardImg{width:120px;height:120px;margin:0 4px;border-radius:6px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.4);user-select:none;-webkit-user-drag:none;
+    -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -60,7 +61,7 @@
 <div id="myHand" style="text-align:center;">
   <img id="holeCard0" class="holeCardImg">
   <img id="holeCard1" class="holeCardImg">
-  <div><button id="peekBtn" type="button" style="touch-action:none;margin-top:8px;">Hold to Peek</button></div>
+  <div><button id="peekBtn" type="button" style="touch-action:none;margin-top:8px;-webkit-tap-highlight-color:transparent;">Hold to Peek</button></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:4px;"></div>
 </div>
 <div id="actions"></div>
@@ -87,7 +88,7 @@ let unsubscribeHoleCards = null;
 // replaces the squeeze mechanic (reverted — too much for a small screen) with
 // something far simpler that solves the same real need: checking your hand
 // in a group without anyone else catching a glimpse.
-const backDataUrl = CardArt.renderBack(256).toDataURL();
+const backDataUrl = CardArt.renderBack(400).toDataURL();
 let faceDataUrls = [backDataUrl, backDataUrl]; // real cards fill this in once dealt
 function setPeek(peeking) {
   document.getElementById('holeCard0').src = peeking ? faceDataUrls[0] : backDataUrl;
@@ -113,7 +114,7 @@ function adoptSeat(seat) {
   unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
     if (cards) {
       const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
-      faceDataUrls = cards.map(c => CardArt.renderFace(c.rank, suitName[c.suit], 256).toDataURL());
+      faceDataUrls = cards.map(c => CardArt.renderFace(c.rank, suitName[c.suit], 400).toDataURL());
       document.getElementById('handHint').textContent = '';
     } else {
       faceDataUrls = [backDataUrl, backDataUrl];
