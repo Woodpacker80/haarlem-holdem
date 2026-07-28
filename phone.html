@@ -19,7 +19,8 @@
   .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
     padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
   .card.red{color:#BE1622;}
-  .holeCardImg{width:120px;height:120px;margin:0 4px;border-radius:6px;
+  .cardSlotWrap{position:relative;display:inline-block;width:120px;height:120px;margin:0 4px;}
+  .holeCardImg{position:absolute;top:0;left:0;width:120px;height:120px;border-radius:6px;
     box-shadow:0 2px 4px rgba(0,0,0,0.4);user-select:none;-webkit-user-drag:none;
     -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
@@ -59,8 +60,14 @@
 <div id="board"></div>
 <div id="info"></div>
 <div id="myHand" style="text-align:center;">
-  <img id="holeCard0" class="holeCardImg">
-  <img id="holeCard1" class="holeCardImg">
+  <div class="cardSlotWrap">
+    <img id="holeCard0Back" class="holeCardImg">
+    <img id="holeCard0Face" class="holeCardImg" style="display:none;">
+  </div>
+  <div class="cardSlotWrap">
+    <img id="holeCard1Back" class="holeCardImg">
+    <img id="holeCard1Face" class="holeCardImg" style="display:none;">
+  </div>
   <div><button id="peekBtn" type="button" style="touch-action:none;margin-top:8px;-webkit-tap-highlight-color:transparent;">Hold to Peek</button></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:4px;"></div>
 </div>
@@ -88,11 +95,21 @@ let unsubscribeHoleCards = null;
 // replaces the squeeze mechanic (reverted — too much for a small screen) with
 // something far simpler that solves the same real need: checking your hand
 // in a group without anyone else catching a glimpse.
+//
+// Both the back AND face image for each card are loaded ONCE and never
+// touched again — peeking only ever toggles which of the two is visible.
+// An earlier version re-set .src on every peek, which forced the browser to
+// re-decode a fresh image mid-gesture — that's what produced the "flashes
+// white" symptom. Two permanently-loaded images with a display toggle
+// avoids that entirely, since nothing ever needs to be redecoded.
 const backDataUrl = CardArt.renderBack(400).toDataURL();
-let faceDataUrls = [backDataUrl, backDataUrl]; // real cards fill this in once dealt
+document.getElementById('holeCard0Back').src = backDataUrl;
+document.getElementById('holeCard1Back').src = backDataUrl;
 function setPeek(peeking) {
-  document.getElementById('holeCard0').src = peeking ? faceDataUrls[0] : backDataUrl;
-  document.getElementById('holeCard1').src = peeking ? faceDataUrls[1] : backDataUrl;
+  document.getElementById('holeCard0Back').style.display = peeking ? 'none' : 'block';
+  document.getElementById('holeCard0Face').style.display = peeking ? 'block' : 'none';
+  document.getElementById('holeCard1Back').style.display = peeking ? 'none' : 'block';
+  document.getElementById('holeCard1Face').style.display = peeking ? 'block' : 'none';
 }
 setPeek(false);
 const peekBtn = document.getElementById('peekBtn');
@@ -114,10 +131,10 @@ function adoptSeat(seat) {
   unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
     if (cards) {
       const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
-      faceDataUrls = cards.map(c => CardArt.renderFace(c.rank, suitName[c.suit], 400).toDataURL());
+      document.getElementById('holeCard0Face').src = CardArt.renderFace(cards[0].rank, suitName[cards[0].suit], 400).toDataURL();
+      document.getElementById('holeCard1Face').src = CardArt.renderFace(cards[1].rank, suitName[cards[1].suit], 400).toDataURL();
       document.getElementById('handHint').textContent = '';
     } else {
-      faceDataUrls = [backDataUrl, backDataUrl];
       document.getElementById('handHint').textContent = 'waiting for the deal…';
     }
     setPeek(false); // new cards always start hidden, never auto-revealed
