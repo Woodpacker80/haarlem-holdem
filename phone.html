@@ -88,6 +88,12 @@ let myUid = null;
 let mySeat = null;
 let latestPublicState = null;
 let wasDisconnected = false;
+// Remembered ONLY in this tab's live JS memory, never in localStorage or
+// anywhere persistent — cleared the instant the tab actually closes or
+// reloads. Lets a brief app-switch-and-back silently resume with the same
+// name (no realistic disconnect happened), while a genuine fresh session
+// still gets asked for a name every time, as intended.
+let currentName = null;
 
 let unsubscribeHoleCards = null;
 
@@ -162,19 +168,28 @@ watchConnection((connected) => {
 
   // A brief disconnect (screen lock, backgrounded tab, wifi blip — all
   // common on a phone) triggers the onDisconnect cleanup that frees this
-  // seat in Firebase. On reconnect, deliberately show the name gate again
-  // rather than silently re-claiming the old name — every reconnect gets a
-  // fresh name prompt, by design. The SEAT itself is still guaranteed to
-  // come back (claimSeat below finds this phone's existing seat by uid,
-  // regardless of what name gets typed this time), so nothing about
-  // rejoining the table is lost — only the name is never auto-reused.
+  // seat in Firebase. If this tab still remembers a name from earlier in
+  // THIS session, silently re-claim the same seat with that same name —
+  // nothing was really "lost," just a momentary connection blip while you
+  // were doing something else on your phone. Only show the name gate again
+  // if this tab genuinely has no memory of ever joining (a real fresh
+  // session), which naturally happens once the tab actually closes/reloads,
+  // since currentName lives only in this tab's live JS memory.
   if (!connected) {
     wasDisconnected = true;
   } else if (wasDisconnected && myUid) {
     wasDisconnected = false;
-    document.getElementById('gameArea').style.display = 'none';
-    document.getElementById('nameGate').style.display = 'flex';
-    document.getElementById('nameInput').value = '';
+    if (currentName) {
+      claimSeat(myUid).then((seat) => {
+        if (seat === null) return;
+        claimName(seat, currentName);
+        adoptSeat(seat);
+      });
+    } else {
+      document.getElementById('gameArea').style.display = 'none';
+      document.getElementById('nameGate').style.display = 'flex';
+      document.getElementById('nameInput').value = '';
+    }
   }
 });
 
@@ -192,6 +207,7 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   const nameInput = document.getElementById('nameInput');
   const name = nameInput.value.trim();
   if (!name) { nameInput.focus(); return; } // no empty names allowed past this point
+  currentName = name;
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
   document.getElementById('seatBadge').textContent = 'joining…';
