@@ -249,7 +249,7 @@ function render(state) {
   // missing from what actually arrives here, crashing every `.map()` /
   // `.includes()` call below. Normalizing once here means every usage
   // after this point can safely assume a real array exists.
-  state = { ...state, board: state.board || [], foldedSeats: state.foldedSeats || [] };
+  state = { ...state, board: state.board || [], foldedSeats: state.foldedSeats || [], bets: state.bets || {} };
 
   document.getElementById('board').innerHTML = state.board.map(renderCard).join('') || '<span style="color:#7d8299;font-size:12px;">pre-flop</span>';
 

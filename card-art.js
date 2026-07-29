@@ -206,15 +206,20 @@
     drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
     ctx.restore();
 
+    // Bottom corners: a TRUE 180-degree rotation, matching how real playing
+    // cards look — readable right-side-up if the card itself is flipped.
+    // (The original drawIndices uses a vertical-only mirror instead, which
+    // was tuned for the 3D squeeze demo's curl context — correct there, but
+    // it produces backwards/mirrored text on a flat, non-curling display.)
     ctx.save();
-    ctx.translate(m, size - m - blockHeight + blockHeight);
-    ctx.scale(1, -1);
+    ctx.translate(m + blockWidth, size - m);
+    ctx.rotate(Math.PI);
     drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
     ctx.restore();
 
     ctx.save();
-    ctx.translate(size - m - blockWidth, size - m - blockHeight + blockHeight);
-    ctx.scale(1, -1);
+    ctx.translate(size - m, size - m);
+    ctx.rotate(Math.PI);
     drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
     ctx.restore();
   }
