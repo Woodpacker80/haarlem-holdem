@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haarlem Hold'em — TV (Host)</title>
+<style>
+  html,body{margin:0;padding:0;min-height:100%;overflow-x:hidden;overflow-y:auto;width:100%;background:#0F2A55;color:#e9e2cf;
+    font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-start;gap:8px;padding:10px 24px 40px;}
+  h1{font-size:20px;letter-spacing:.03em;color:#c9a84c;margin:0;font-weight:600;}
+  .sub{font-size:12px;color:#7d8299;text-align:center;max-width:500px;line-height:1.5;margin:0;}
+  label{font-size:12px;color:#7d8299;margin-right:6px;}
+  input[type=number]{width:64px;background:#0d1626;border:1px solid #3a3f52;color:#e9e2cf;
+    border-radius:6px;padding:6px;font-size:13px;margin-right:14px;}
+  button{background:transparent;border:2px solid #c9a84c;color:#c9a84c;padding:12px 22px;
+    border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
+  button:hover{background:rgba(201,168,76,0.15);}
+  button:disabled{cursor:default;border-color:#3a3f52 !important;color:#3a3f52 !important;}
+  #startBtn{width:140px;height:140px;border:2px solid #c9a84c;color:#c9a84c;
+    border-radius:8px;font-weight:600;box-sizing:border-box;transition:background .2s;}
+  #startBtn:not(:disabled):hover{background:rgba(201,168,76,0.1);}
+  #conn{font-size:11px;letter-spacing:.05em;text-transform:uppercase;}
+  #conn.bad{color:#BE1622;} #conn.good{color:#3fbf6f;}
+  #jumbo{width:80vw;max-width:900px;border:2px solid #c9a84c;border-radius:16px;
+    background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);padding:16px;}
+  table{border-collapse:collapse;font-size:13px;width:100%;}
+  th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #1c2338;}
+  #ovalTable{position:relative;width:96%;height:380px;margin:50px auto 0;}
+  #leaderboardSidebar{position:fixed;top:0;bottom:0;left:0;width:260px;
+    background:rgba(10,15,30,0.94);border-right:2px solid #c9a84c;
+    transform:translateX(-100%);transition:transform .3s;z-index:15;
+    padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;}
+  #leaderboardSidebar.open{transform:translateX(0);}
+  .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
+    border-bottom:1px solid #3a3f52;font-size:14px;}
+  .lbRank{color:#c9a84c;font-weight:700;width:22px;}
+  .lbName{flex:1;color:#e9e2cf;}
+  .lbStack{color:#c9a84c;font-weight:600;}
+  #ovalRim{position:absolute;inset:0;border-radius:50%;
+    background:linear-gradient(135deg, #e0c26a 0%, #c9a84c 55%, #8a6d2e 100%);
+    box-shadow:0 0 40px rgba(0,0,0,0.5);}
+  #ovalFelt{position:absolute;inset:5%;border-radius:50%;
+    background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);
+    border:2px solid #2a1005;box-shadow:inset 0 0 40px rgba(0,0,0,0.5);}
+  #tableCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;max-width:64%;z-index:10;}
+  .chipPile{position:absolute;transform:translate(-50%,-50%);display:flex;gap:3px;
+    align-items:flex-end;z-index:8;pointer-events:none;
+    transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
+  .chipStack{position:relative;width:16px;height:44px;}
+  .chipStack .chip{position:absolute;left:0;width:16px;height:16px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,0.15);box-shadow:0 1px 2px rgba(0,0,0,0.5);}
+  .chipStack.red .chip{background:#8B1E1E;}
+  .chipStack.black .chip{background:#151515;}
+  .chipStack.green .chip{background:#1a5c2e;}
+  .chipStack.gold .chip{background:#c9a84c;}
+  .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
+    background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
+    padding:6px 9px;text-align:center;min-width:78px;
+    transition:opacity .25s, border-color .25s;}
+  .seatSign.acting{border-color:#c9a84c;box-shadow:0 0 10px rgba(201,168,76,0.5);}
+  .seatSign.folded{opacity:0.4;}
+  .seatSign.allin{border-color:#BE1622;}
+  .seatSign .podName{font-size:12px;color:#e9e2cf;font-weight:600;margin-bottom:4px;white-space:nowrap;}
+  .seatSign .podCards{margin-bottom:4px;}
+  .seatSign .podCards .card{font-size:12px;padding:2px 4px;min-width:18px;margin:0 1px;}
+  .seatSign .podCards .burnCard{width:18px;height:24px;padding:0;margin:0 1px;}
+  .seatSign .podStack{font-size:12px;color:#c9a84c;font-weight:700;}
+  .tag{display:inline-block;font-size:10px;border:1px solid #c9a84c;color:#c9a84c;border-radius:3px;
+    padding:0 5px;margin-left:5px;}
+  .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
+    padding:5px 9px;margin:2px;font-weight:700;font-size:18px;min-width:34px;text-align:center;}
+  .card.red{color:#BE1622;}
+  .burnCard{display:inline-block;border-radius:6px;
+    padding:5px 9px;margin:2px;font-weight:700;font-size:18px;min-width:34px;text-align:center;
+    background-size:cover;background-position:center;color:transparent;
+    animation:burnPulse 1.1s ease-in-out infinite;}
+  @keyframes burnPulse{0%,100%{opacity:0.65;}50%{opacity:1;}}
+  #boardArea{text-align:center;margin-bottom:16px;min-height:50px;}
+  #leaderboard{text-align:center;margin-bottom:10px;font-size:13px;color:#c9c4b0;}
+  #statusLine{font-size:15px;color:#c9a84c;text-align:center;margin-bottom:14px;}
+  #actionLog{max-width:560px;margin:0 auto 14px;font-size:13px;color:#c9c4b0;
+    min-height:18px;line-height:1.6;display:flex;align-items:center;justify-content:center;gap:18px;}
+  #actionLog .streetLabel{color:#c9a84c;font-weight:600;}
+  .potbox{border:1px solid #3a3f52;border-radius:8px;padding:10px 16px;margin-bottom:8px;}
+  .potbox .amount{color:#c9a84c;font-weight:700;font-size:15px;}
+  .potbox .eligible{font-size:12px;color:#7d8299;}
+  .splitTag{color:#c9a84c;font-weight:700;}
+  #setupArea{text-align:center;}
+  #seatList{font-size:13px;color:#7d8299;margin:10px 0;}
+</style>
+</head>
+<body>
+<button id="quitGameBtn" style="position:fixed;top:14px;left:20px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
+<div id="potBadge" style="display:none;position:fixed;top:14px;color:#c9a84c;
+  font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:6px 14px;
+  border-radius:8px;border:2px solid #c9a84c;z-index:20;"></div>
+
+<div id="setupHeader" style="text-align:center;">
+  <h1>Haarlem Hold'em TV Host</h1>
+  <div id="conn" style="margin-top:2px;text-align:center;">connecting…</div>
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;margin-top:6px;">
+    <button id="clearBansBtn" style="padding:6px 14px;font-size:12px;">Clear All Bans</button>
+    <button id="startNewGameBtn" style="padding:6px 14px;font-size:12px;">Start New Game</button>
+    <button id="helpBtn" style="padding:6px 14px;font-size:12px;">How to Play</button>
+  </div>
+  <div id="tvError" style="color:#BE1622;font-size:12px;min-height:16px;text-align:center;"></div>
+
+  <div id="helpPanel" style="display:none;max-width:560px;margin:4px auto 8px;padding:14px 18px;
+    border:1px solid #3a3f52;border-radius:10px;background:rgba(255,255,255,0.03);
+    font-size:13px;line-height:1.7;color:#c9c4b0;">
+
+    <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Setup</div>
+    <div>1. <b>Connect the TV</b> — open this page on your TV or tablet. It becomes the dealer.</div>
+    <div>2. <b>Players join</b> — scan the QR code (or open the link) on your own phone, and enter your name.</div>
+    <div>3. <b>Host starts</b> — once everyone's seated, tap <b>Start Game</b>.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Host controls</div>
+    <div><b>Kick</b> (seat list) — removes a specific player from their seat and blocks their phone from
+      automatically rejoining that seat. Use this if the wrong person joined, someone had to leave, or a
+      phone needs to be freed up for someone else. Kicks don't expire on their own — they stay in place
+      until you lift them.</div>
+    <div style="margin-top:6px;"><b>Clear All Bans</b> — lifts every kick from the previous game, all at once,
+      so anyone can rejoin.</div>
+    <div style="margin-top:6px;"><b>Start New Game</b> — clears every seat immediately, including a phone left
+      open in the background, so the next game starts genuinely empty.</div>
+    <div style="margin-top:6px;"><b>Quit Game</b> — stops the current hand and returns to the lobby. Doesn't
+      kick anyone.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">How to Play</div>
+    <div>Each player gets 2 hole cards, face-down, visible only on their own phone. Betting happens before
+      the flop, then after the flop (3 shared cards appear), the turn (1 more), and the river (1 more).
+      Best 5-card hand wins.</div>
+
+    <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Hand ranking, best to worst:</div>
+
+    <div style="margin-top:8px;"><b>1. Straight Flush</b> — 5 cards in a row, all the same suit<br>
+      <span class="card red">10♥</span><span class="card red">J♥</span><span class="card red">Q♥</span><span class="card red">K♥</span><span class="card red">A♥</span>
+      <span style="color:#7d8299;"> (a Royal Flush — the best possible straight flush)</span><br>
+      <span style="color:#7d8299;">Higher top card wins — a Jack-high straight flush beats a 9-high one.</span></div>
+
+    <div style="margin-top:10px;"><b>2. Four of a Kind</b> — 4 cards of the same rank<br>
+      <span class="card">7♠</span><span class="card red">7♥</span><span class="card red">7♦</span><span class="card">7♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">Higher rank wins — four Kings beats four Sevens.</span></div>
+
+    <div style="margin-top:10px;"><b>3. Full House</b> — 3 of a kind plus a pair<br>
+      <span class="card">K♠</span><span class="card red">K♥</span><span class="card red">K♦</span><span class="card">4♣</span><span class="card">4♠</span><br>
+      <span style="color:#7d8299;">The three-of-a-kind rank decides it first — Kings-full-of-Fours beats Nines-full-of-Aces.</span></div>
+
+    <div style="margin-top:10px;"><b>4. Flush</b> — 5 cards, all the same suit, not in order<br>
+      <span class="card">2♠</span><span class="card">6♠</span><span class="card">9♠</span><span class="card">J♠</span><span class="card">K♠</span><br>
+      <span style="color:#7d8299;">Compared card-by-card from highest down — the flush with the higher top card wins.</span></div>
+
+    <div style="margin-top:10px;"><b>5. Straight</b> — 5 cards in a row, mixed suits<br>
+      <span class="card red">4♥</span><span class="card">5♠</span><span class="card red">6♦</span><span class="card">7♣</span><span class="card">8♠</span><br>
+      <span style="color:#7d8299;">Higher top card wins — an 8-high straight beats a 7-high one.</span></div>
+
+    <div style="margin-top:10px;"><b>6. Three of a Kind</b> — 3 cards of the same rank<br>
+      <span class="card">9♠</span><span class="card red">9♥</span><span class="card red">9♦</span><span class="card">3♣</span><span class="card">K♠</span><br>
+      <span style="color:#7d8299;">Higher rank wins — three Nines beats three Fours.</span></div>
+
+    <div style="margin-top:10px;"><b>7. Two Pair</b> — 2 separate pairs<br>
+      <span class="card">J♠</span><span class="card red">J♥</span><span class="card red">5♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">The higher pair decides it first, then the lower pair.</span></div>
+
+    <div style="margin-top:10px;"><b>8. Pair</b> — 2 cards of the same rank<br>
+      <span class="card">Q♠</span><span class="card red">Q♥</span><span class="card red">7♦</span><span class="card">4♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">Higher pair wins — a pair of Queens beats a pair of Sevens.</span></div>
+
+    <div style="margin-top:10px;margin-bottom:14px;"><b>9. High Card</b> — no combination, highest single card wins<br>
+      <span class="card">A♠</span><span class="card red">K♥</span><span class="card red">9♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+      <span style="color:#7d8299;">If the top card ties, the next-highest card decides it, and so on.</span></div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Show or Muck</div>
+    <div>At showdown, you don't always have to reveal your cards. The player who bet or raised last has to
+      show first — everyone after that gets to choose Show or Muck. Mucking hides your hand for good — even
+      if it would have won, nobody ever sees it. Your secrets are safe, win or lose.</div>
+    <div style="margin-top:6px;color:#7d8299;">One exception: if a hand goes all the way to showdown with an
+      all-in on the table, everyone shows — no mucking, per standard rules.</div>
+
+    <div style="color:#c9a84c;font-weight:600;margin:16px 0 6px;">About Haarlem Hold'em</div>
+    <div>Designed and built in Haarlem, the Netherlands, 2026.</div>
+    <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">The Team</div>
+    <div>Mark Oddens — Design &amp; Direction</div>
+    <div>Claude (Anthropic) — Development</div>
+    <div>Gemini (Google) — Technical Review</div>
+    <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Powered By</div>
+    <div>Three.js &amp; Google Firebase</div>
+  </div>
+</div>
+
+<div id="setupArea">
+  <div id="seatList">Waiting for players to join…</div>
+  <label>Starting stack</label><input type="number" id="startStack" value="2500" min="20">
+  <label>Small blind</label><input type="number" id="sbAmount" value="25" min="1">
+  <label>Big blind</label><input type="number" id="bbAmount" value="50" min="2">
+
+  <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin-top:12px;">
+    <div style="text-align:center;">
+      <div style="color:#7d8299;font-size:12px;margin-bottom:8px;">Scan to join on your phone</div>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https%3A%2F%2Fwoodpacker80.github.io%2Fhaarlem-holdem%2Fphone.html"
+        alt="QR code to join on your phone"
+        style="width:140px;height:140px;box-sizing:border-box;border-radius:8px;border:2px solid #c9a84c;background:#fff;padding:8px;">
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:12px;margin-bottom:8px;visibility:hidden;">spacer</div>
+      <button id="startBtn" disabled>Start Game</button>
+    </div>
+  </div>
+</div>
+
+<div id="jumbo" style="display:none;width:100%;align-self:flex-start;position:relative;">
+  <div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;">
+    <button id="leaderboardBtn" type="button" style="font-size:11px;padding:6px 14px;">Leaderboard</button>
+  </div>
+
+  <div id="leaderboardSidebar"></div>
+
+  <div id="ovalTable">
+    <div id="ovalRim"></div>
+    <div id="ovalFelt"></div>
+    <div id="tableCenter">
+      <div id="statusLine"></div>
+      <div id="actionLog"></div>
+      <div id="boardArea"></div>
+      <div id="resultArea"></div>
+      <div id="hostControls"></div>
+    </div>
+    <button id="nextHandBtn2" style="display:none;position:absolute;z-index:10;">Deal Next Hand</button>
+  </div>
+</div>
+
+<script src="card-art.js"></script>
+<script src="sfx.js"></script>
+<script type="module">
+import { ensureAuth, watchConnection } from './firebase-config.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames } from './game-sync.js';
+import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
+
+const connEl = document.getElementById('conn');
+watchConnection((connected) => {
+  connEl.textContent = connected ? 'connected' : 'disconnected';
+  connEl.className = connected ? 'good' : 'bad';
+});
+
+function renderCard(card) {
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  return `<span class="card${isRed ? ' red' : ''}">${card.rank}${card.suit}</span>`;
+}
+
+// The TV keeps the authoritative in-memory game state. Only the PUBLIC
+// parts (no hole cards) get written to Firebase for phones to read.
+let handState = null;
+let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, bigBlindAmount }
+let currentSeats = {}; // seatIndex -> uid, from watchSeats
+let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
+let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
+let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
+let rankingSyncedForResult = false; // whether frozenRankOrder already reflects the CURRENT hand's own result
+watchPlayerNames((names) => { playerNames = names; render(); });
+
+// Falls back to "Seat X" if that seat hasn't joined with a name yet.
+function seatLabel(seat) {
+  return (playerNames[seat] && playerNames[seat].display) || `Seat ${seat + 1}`;
+}
+// Rolling feed of what's happened this hand: actions and street reveals.
+// Reset per hand in startNewHand(). Kept short (last few entries) — this is
+// meant to be glanced at, not a full transcript.
+let actionLog = [];
+let currentStreetLabel = '';
+function logEvent(text) {
+  actionLog.push(text);
+  if (actionLog.length > 2) actionLog.shift();
+}
+function formatAction(seat, action, resultingStack) {
+  const who = seatLabel(seat);
+  const isAllIn = resultingStack === 0 && (action.type === 'call' || action.type === 'raise');
+  switch (action.type) {
+    case 'fold': return `${who} Folds`;
+    case 'check': return `${who} Checks`;
+    case 'call': return isAllIn ? `${who} Calls All-in` : `${who} Calls`;
+    case 'raise': return isAllIn ? `${who} Raises All-in` : `${who} Raises to ${action.amount}`;
+    default: return `${who} Acts`;
+  }
+}
+const STREET_LABEL = { flop: 'Flop', turn: 'Turn', river: 'River' };
+
+const RANK_NAME = (v) => ({ 14: 'Ace', 13: 'King', 12: 'Queen', 11: 'Jack' })[v] || String(v);
+
+// Turns a hand-eval result ({categoryName, tiebreakers}) into a readable
+// phrase for the result box, e.g. "Straight, 10 High" or "Full House,
+// Kings over Fours". Royal Flush gets called out specially — it's just the
+// Ace-high Straight Flush, not a separate category in hand-eval.js (see
+// the How to Play panel's note on this).
+function describeHand(hand) {
+  const t = hand.tiebreakers;
+  switch (hand.categoryName) {
+    case 'HIGH_CARD': return `High Card, ${RANK_NAME(t[0])} High`;
+    case 'PAIR': return `Pair of ${RANK_NAME(t[0])}s`;
+    case 'TWO_PAIR': return `Two Pair, ${RANK_NAME(t[0])}s and ${RANK_NAME(t[1])}s`;
+    case 'THREE_KIND': return `Three of a Kind, ${RANK_NAME(t[0])}s`;
+    case 'STRAIGHT': return `Straight, ${RANK_NAME(t[0])} High`;
+    case 'FLUSH': return `Flush, ${RANK_NAME(t[0])} High`;
+    case 'FULL_HOUSE': return `Full House, ${RANK_NAME(t[0])}s over ${RANK_NAME(t[1])}s`;
+    case 'FOUR_KIND': return `Four of a Kind, ${RANK_NAME(t[0])}s`;
+    case 'STRAIGHT_FLUSH': return t[0] === 14 ? 'Royal Flush' : `Straight Flush, ${RANK_NAME(t[0])} High`;
+    default: return '';
+  }
+}
+
+// Same exact card-back texture the squeeze mechanic uses (card-art.js),
+// not a hand-approximated CSS lookalike — reused as a data URL so a plain
+// <img>/background-image can show it without any Three.js/canvas setup here.
+const burnCardBackUrl = CardArt.renderBack(128).toDataURL();
+
+// For the burn-card tension effect: how many board cards have actually been
+// SHOWN so far (which can lag behind handState.board.length while a burn
+// animation is playing). Reset whenever a new hand starts.
+let revealedBoardLen = 0;
+let burnAnimationPending = false;
+
+// Only ever send hole cards phones are actually allowed to see right now —
+// a mucked hand must never be transmitted at all, not just hidden visually,
+// or mucking would be privacy theater (visible in the raw debug dump).
+function visibleHoleCards(h) {
+  if (h.pendingReveal) {
+    const out = {};
+    Object.keys(h.pendingReveal.decisions).forEach(seat => {
+      if (h.pendingReveal.decisions[seat] === 'shown') out[seat] = h.holeCards[seat];
+    });
+    return out;
+  }
+  if (h.result) {
+    if (h.result.uncontested) {
+      return h.result.voluntaryReveal ? { [h.result.voluntaryReveal.seat]: h.holeCards[h.result.voluntaryReveal.seat] } : {};
+    }
+    if (h.result.revealDecisions) {
+      const out = {};
+      Object.keys(h.result.revealDecisions).forEach(seat => {
+        if (h.result.revealDecisions[seat] === 'shown') out[seat] = h.holeCards[seat];
+      });
+      return out;
+    }
+    return h.holeCards; // all-in path — WSOP rule is everyone shows, no muck exists here
+  }
+  return {};
+}
+
+function publicStateFrom(h) {
+  return {
+    numSeats: h.numSeats,
+    dealerSeat: h.dealerSeat,
+    activeSeats: h.activeSeats,
+    street: h.street,
+    board: h.board,
+    foldedSeats: h.foldedSeats,
+    stacks: h.stacks,
+    bets: h.bettingRound ? h.bettingRound.bets : {},
+    totalBets: h.totalBets, // + current round's bets = the real current pot, for bet-sizing presets
+    actingSeat: h.bettingRound ? h.bettingRound.actingSeat : null,
+    currentBet: h.bettingRound ? h.bettingRound.currentBet : 0,
+    minRaiseAmount: h.bettingRound ? h.bettingRound.minRaiseAmount : 0,
+    result: h.result, // includes ranking with categoryName — safe to reveal, showdown is public in real poker too
+    revealedHoleCards: visibleHoleCards(h),
+    pendingReveal: h.pendingReveal ? { order: h.pendingReveal.order, currentIndex: h.pendingReveal.currentIndex } : null,
+    pendingVoluntaryShow: h.pendingVoluntaryShow,
+  };
+}
+
+function publish() {
+  try {
+    writePublicState(publicStateFrom(handState));
+    render();
+    document.getElementById('tvError').textContent = '';
+  } catch (e) {
+    document.getElementById('tvError').textContent = '⚠ publish crashed: ' + e.message;
+    console.error(e);
+    // Never let a display bug leave the game genuinely stuck — if a hand
+    // actually finished (handState.result exists) but something above
+    // crashed before showing it properly, guarantee a way to move on.
+    if (handState && handState.result) {
+      const hostControls = document.getElementById('hostControls');
+      if (hostControls) {
+        hostControls.innerHTML = '<button id="nextHandBtnFallback">Deal Next Hand</button>';
+        document.getElementById('nextHandBtnFallback').addEventListener('click', dealNextHand);
+      }
+    }
+  }
+}
+
+function dealFirstHand() {
+  SFX.unlock();
+  const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
+  const startStack = parseInt(document.getElementById('startStack').value, 10);
+  const stacks = {};
+  activeSeats.forEach(s => stacks[s] = startStack);
+  gameConfig = {
+    activeSeats,
+    stacks,
+    dealerSeat: activeSeats[0],
+    smallBlindAmount: parseInt(document.getElementById('sbAmount').value, 10),
+    bigBlindAmount: parseInt(document.getElementById('bbAmount').value, 10),
+  };
+  startNewHand();
+  document.getElementById('setupArea').style.display = 'none';
+  document.getElementById('setupHeader').style.display = 'none';
+  document.body.style.padding = '0';
+  document.getElementById('quitGameBtn').style.top = '14px';
+  document.getElementById('jumbo').style.display = 'block';
+  requestAnimationFrame(positionPotBadge); // table isn't laid out until jumbo is actually visible
+}
+
+// Anchors Pot's RIGHT edge to the game window's own measured right edge —
+// not a guessed pixel value — so it can never fall outside the table no
+// matter how the screen crops or scales. A big pot number then grows the
+// badge LEFTWARD (safely inward, toward Leaderboard), never further
+// toward the actual screen edge.
+function positionPotBadge() {
+  const table = document.getElementById('ovalTable');
+  const potBadge = document.getElementById('potBadge');
+  if (!table || !potBadge || document.getElementById('jumbo').style.display === 'none') return;
+  const tableRect = table.getBoundingClientRect();
+  const inwardPadding = 8; // extra room beyond the table's own measured edge
+  potBadge.style.right = (window.innerWidth - tableRect.right + inwardPadding) + 'px';
+}
+window.addEventListener('resize', positionPotBadge);
+
+function startNewHand() {
+  revealedBoardLen = 0;
+  burnAnimationPending = false;
+  actionLog = [];
+  currentStreetLabel = '';
+  clearRevealTimer();
+  clearVoluntaryTimer();
+  allInAnimated = {};
+  document.querySelectorAll('.chipPile').forEach(el => el.remove());
+  // Ranking is frozen for the whole hand, computed ONCE here from standings
+  // as they were entering this hand (before blinds) — recomputing it live
+  // during betting would mean the leaderboard/table flicker and reshuffle
+  // mid-hand as bets go back and forth, which is distracting for no real
+  // benefit. It only moves once, right when the next hand begins.
+  // Initial ranking entering this hand — gets upgraded to this SAME hand's
+  // own final result the instant it's available (see the render() check
+  // below), so the board never lags a full hand behind on the result
+  // screen. Only needed here for the very first hand, where there's no
+  // previous result yet to have already synced from.
+  frozenRankOrder = [...gameConfig.activeSeats].sort((a, b) => gameConfig.stacks[b] - gameConfig.stacks[a]);
+  rankingSyncedForResult = false;
+  handState = startHand({
+    numSeats: Math.max(...gameConfig.activeSeats) + 1,
+    activeSeats: gameConfig.activeSeats,
+    stacks: gameConfig.stacks,
+    dealerSeat: gameConfig.dealerSeat,
+    smallBlindAmount: gameConfig.smallBlindAmount,
+    bigBlindAmount: gameConfig.bigBlindAmount,
+  });
+  writeHoleCards(handState.holeCards);
+  publish();
+}
+
+function dealNextHand() {
+  SFX.unlock();
+  gameConfig.stacks = handState.stacks;
+  gameConfig.activeSeats = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] > 0);
+  if (gameConfig.activeSeats.length < 2) {
+    document.getElementById('resultArea').innerHTML = '<div style="color:#c9a84c;">Game over — not enough players with chips left.</div>';
+    return;
+  }
+  // Advance dealer button to the next active seat.
+  const numSeats = handState.numSeats;
+  let next = (gameConfig.dealerSeat + 1) % numSeats;
+  while (!gameConfig.activeSeats.includes(next)) next = (next + 1) % numSeats;
+  gameConfig.dealerSeat = next;
+  startNewHand();
+}
+
+// Shared by both a real phone decision (via the action queue above) and the
+// auto-muck timer / host "force muck" override below — same code path
+// either way, so there's only one place that can apply a reveal decision.
+function applyReveal(seat, decision) {
+  const pending = handState.pendingReveal;
+  if (!pending) return; // already resolved (e.g. timer fired after a real decision beat it)
+  const handInfo = pending.ranking.flatMap(g => g).find(e => e.seat === seat);
+  handState = applyRevealDecision(handState, seat, decision);
+  logEvent(decision === 'show' && handInfo ? `${seatLabel(seat)} shows ${describeHand(handInfo.hand)}` : `${seatLabel(seat)} mucks`);
+  clearRevealTimer();
+  publish();
+}
+function applyVoluntaryReveal(seat, decision) {
+  if (!handState.pendingVoluntaryShow || handState.pendingVoluntaryShow.decided) return;
+  handState = applyVoluntaryShowDecision(handState, seat, decision);
+  if (decision === 'show') logEvent(`${seatLabel(seat)} shows their hand`);
+  clearVoluntaryTimer();
+  publish();
+}
+
+// Host-authoritative countdown: whoever's currently up to decide gets 5
+// seconds before auto-mucking (matches how real online poker rooms default
+// to a fast auto-muck rather than a long wait — see the design discussion).
+// This timer is the ONLY clock that matters; it lives on the TV, not on
+// each phone, so it can't be affected by a phone lagging or backgrounding.
+let revealTimerHandle = null;
+let revealTimerSeat = null;
+let revealWarnHandle = null;
+function clearRevealTimer() {
+  if (revealTimerHandle) clearTimeout(revealTimerHandle);
+  if (revealWarnHandle) clearTimeout(revealWarnHandle);
+  revealTimerHandle = null;
+  revealWarnHandle = null;
+  revealTimerSeat = null;
+}
+function ensureRevealTimer() {
+  const pending = handState && handState.pendingReveal;
+  const targetSeat = pending && pending.currentIndex < pending.order.length ? pending.order[pending.currentIndex] : null;
+  if (targetSeat === null) { clearRevealTimer(); return; }
+  if (revealTimerSeat === targetSeat) return; // already running for this exact turn
+  clearRevealTimer();
+  revealTimerSeat = targetSeat;
+  revealWarnHandle = setTimeout(() => SFX.decisionWarning(), 3000); // 3 seconds before it auto-mucks
+  revealTimerHandle = setTimeout(() => applyReveal(targetSeat, 'muck'), 6000);
+}
+
+let voluntaryTimerHandle = null;
+let voluntaryTimerSeat = null;
+function clearVoluntaryTimer() {
+  if (voluntaryTimerHandle) clearTimeout(voluntaryTimerHandle);
+  voluntaryTimerHandle = null;
+  voluntaryTimerSeat = null;
+}
+function ensureVoluntaryTimer() {
+  const pending = handState && handState.pendingVoluntaryShow;
+  if (!pending || pending.decided) { clearVoluntaryTimer(); return; }
+  if (voluntaryTimerSeat === pending.seat) return;
+  clearVoluntaryTimer();
+  voluntaryTimerSeat = pending.seat;
+  voluntaryTimerHandle = setTimeout(() => applyVoluntaryReveal(pending.seat, 'muck'), 5000);
+}
+watchActionQueue((key, request) => {
+  clearActionQueueItem(key); // remove immediately so it's never reprocessed
+  if (!handState) return; // no hand at all — ignore stray requests
+  const type = request.action.type;
+  try {
+    if (type === 'show' || type === 'muck') {
+      applyReveal(request.seat, type);
+    } else if (type === 'voluntaryShow' || type === 'voluntaryMuck') {
+      applyVoluntaryReveal(request.seat, type === 'voluntaryShow' ? 'show' : 'muck');
+    } else {
+      if (handState.result) return; // a betting action with no hand in progress — ignore
+      handState = applyHandAction(handState, request.seat, request.action);
+      logEvent(formatAction(request.seat, request.action, handState.stacks[request.seat]));
+      publish();
+    }
+    document.getElementById('tvError').textContent = '';
+  } catch (e) {
+    document.getElementById('tvError').textContent = '⚠ Rejected action from Seat ' + (request.seat + 1) + ': ' + e.message;
+    console.error('Rejected action from seat', request.seat, ':', e.message);
+  }
+});
+
+watchSeats((seats) => {
+  currentSeats = seats;
+  const count = Object.keys(seats).length;
+  const seatListEl = document.getElementById('seatList');
+  if (count === 0) {
+    seatListEl.textContent = 'Waiting for players to join…';
+  } else {
+    seatListEl.innerHTML = Object.entries(seats)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([seatStr, uid]) => `
+        <span style="display:inline-flex;align-items:center;gap:6px;margin:0 10px;">
+          ${seatLabel(Number(seatStr))}
+          <button class="kickBtn" data-seat="${seatStr}" data-uid="${uid}"
+            style="font-size:11px;padding:3px 8px;">Kick</button>
+        </span>`).join('');
+    seatListEl.querySelectorAll('.kickBtn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        kickSeat(btn.dataset.uid, Number(btn.dataset.seat));
+      });
+    });
+  }
+  document.getElementById('startBtn').disabled = count < 2 || handState !== null;
+});
+
+document.getElementById('startBtn').addEventListener('click', dealFirstHand);
+
+// Lets the host manually reset whenever things get stuck. Deliberately a
+// 1. QUIT GAME — plain stop. Clears seats, hole cards, public state, and
+// any queued actions, so nothing stale (like old hole cards) can linger.
+// Deliberately does NOT touch bans and does NOT kick anyone — a currently
+// connected phone's own auto-rejoin listener may grab a seat right back,
+// and that's fine here: cleaning THAT up is what step 3 is for.
+document.getElementById('helpBtn').addEventListener('click', () => {
+  const panel = document.getElementById('helpPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('leaderboardBtn').addEventListener('click', () => {
+  document.getElementById('leaderboardSidebar').classList.toggle('open');
+});
+
+document.getElementById('quitGameBtn').addEventListener('click', async () => {
+  handState = null;
+  gameConfig = null;
+  await clearGameState();
+  document.getElementById('jumbo').style.display = 'none';
+  document.getElementById('setupHeader').style.display = 'block';
+  document.body.style.padding = '10px 24px 40px';
+  document.getElementById('quitGameBtn').style.top = '14px';
+  document.getElementById('setupArea').style.display = 'block';
+  document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('leaderboardSidebar').innerHTML = '';
+});
+
+// 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
+// whenever the host chooses. See kickSeat/clearBans in game-sync.js.
+document.getElementById('clearBansBtn').addEventListener('click', clearBans);
+
+// 3. START NEW GAME — the actual "make sure the room is really empty"
+// step. Bans + removes whoever is seated AT THIS EXACT MOMENT (which may
+// include a ghost that silently auto-rejoined right after Quit Game,
+// since nothing stopped it from doing that) — this defeats that phone's
+// own auto-rejoin listener (it checks the ban before reclaiming). Doing
+// this as its own step, AFTER Clear All Bans has already run, means we
+// don't need any auto-expiring/timed unban logic: whatever gets banned
+// here just sits banned until the host clicks Clear All Bans again next
+// time, which is exactly the explicit, host-controlled behavior wanted.
+document.getElementById('startNewGameBtn').addEventListener('click', async () => {
+  await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
+  document.getElementById('jumbo').style.display = 'none';
+  document.getElementById('setupHeader').style.display = 'block';
+  document.body.style.padding = '10px 24px 40px';
+  document.getElementById('quitGameBtn').style.top = '14px';
+  document.getElementById('setupArea').style.display = 'block';
+  document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('leaderboardSidebar').innerHTML = '';
+});
+
+// Burn-card tension effect: whenever the board has grown beyond what's
+// currently shown, hold on a face-down "burn" card for a beat, then reveal
+// ONE street's worth of cards, then (if more still need showing — this is
+// what happens during an all-in runout, where the engine deals flop+turn+
+// river in a single internal jump) pause briefly and repeat. Purely
+// presentational: the engine already burns a real card internally either
+// way (deck.js) — this just stops hiding the ritual from the players, and
+// stops an all-in runout from dumping all 5 board cards on screen at once.
+function revealNextStep() {
+  const h = handState;
+  if (!h) { burnAnimationPending = false; return; }
+  const actualBoardLen = h.board.length;
+  if (revealedBoardLen >= actualBoardLen) { burnAnimationPending = false; return; }
+  burnAnimationPending = true;
+  const alreadyShown = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
+  document.getElementById('boardArea').innerHTML = alreadyShown + `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10♠</span>`;
+  // First reveal is the flop (3 cards at once); every reveal after that is
+  // exactly one card (turn, then river) — matches real street sizes.
+  const stepTarget = revealedBoardLen === 0 ? Math.min(3, actualBoardLen) : Math.min(revealedBoardLen + 1, actualBoardLen);
+  setTimeout(() => {
+    revealedBoardLen = stepTarget;
+    SFX.cardFlip();
+    document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
+    const streetJustShown = stepTarget === 3 ? 'flop' : stepTarget === 4 ? 'turn' : stepTarget === 5 ? 'river' : null;
+    if (streetJustShown) currentStreetLabel = STREET_LABEL[streetJustShown];
+    render();
+    if (revealedBoardLen < actualBoardLen) {
+      setTimeout(revealNextStep, 550); // brief beat before burning the next one
+    } else {
+      burnAnimationPending = false;
+    }
+  }, 1100);
+}
+
+function muckedCardsHtml() {
+  const back = `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10\u2660</span>`;
+  return back + back;
+}
+// What a seat's card cell should show, across every phase a hand can be in.
+function seatCardsHtml(h, seat) {
+  if (h.pendingReveal) {
+    const decision = h.pendingReveal.decisions[seat];
+    if (decision === 'shown') return h.holeCards[seat].map(renderCard).join('');
+    if (decision === 'mucked') return muckedCardsHtml();
+    return '\uD83C\uDCA0 \uD83C\uDCA0'; // hasn't decided yet
+  }
+  if (h.result) {
+    if (h.result.uncontested) {
+      return (h.result.voluntaryReveal && h.result.voluntaryReveal.seat === seat)
+        ? h.holeCards[seat].map(renderCard).join('') : '\uD83C\uDCA0 \uD83C\uDCA0';
+    }
+    if (h.result.revealDecisions) { // went through the turn-based reveal
+      const decision = h.result.revealDecisions[seat];
+      return decision === 'shown' ? h.holeCards[seat].map(renderCard).join('') : muckedCardsHtml();
+    }
+    return h.holeCards[seat].map(renderCard).join(''); // all-in path — everyone shows, no muck
+  }
+  return '\uD83C\uDCA0 \uD83C\uDCA0';
+}
+
+function render() {
+  if (!handState) return;
+  const h = handState;
+
+  // Sync the ranking to THIS hand's own result the instant it's genuinely
+  // visible (board animation caught up) — must happen before anything else
+  // in this function reads frozenRankOrder, or the leaderboard would still
+  // show the PREVIOUS hand's standings for one extra render pass.
+  const revealCaughtUp = h.board.length <= revealedBoardLen && !burnAnimationPending;
+  if (h.result && revealCaughtUp && !rankingSyncedForResult) {
+    frozenRankOrder = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
+    rankingSyncedForResult = true;
+    SFX.win();
+  }
+
+  const potBadge = document.getElementById('potBadge');
+  const potNow = Object.values(h.totalBets || {}).reduce((a, b) => a + b, 0)
+               + Object.values(h.bettingRound ? h.bettingRound.bets : {}).reduce((a, b) => a + b, 0);
+  potBadge.textContent = `Pot: ${potNow}`;
+  potBadge.style.display = 'block';
+
+  // Leaderboard: ranked by CURRENT chip count, this session only.
+  const ranked = frozenRankOrder;
+  const medal = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+  document.getElementById('leaderboardSidebar').innerHTML = ranked.map((seat, i) => `
+    <div class="lbRow">
+      <span class="lbRank">${medal[i] || ('#' + (i + 1))}</span>
+      <span class="lbName">${seatLabel(seat)}</span>
+      <span class="lbStack">${h.stacks[seat]}</span>
+    </div>`).join('');
+
+  const handComplete = h.result && revealCaughtUp;
+  document.getElementById('statusLine').textContent = h.result
+    ? 'Hand complete'
+    : (h.bettingRound ? `It's ${seatLabel(h.bettingRound.actingSeat)}'s turn` : '');
+
+  const actionsHtml = actionLog.length ? `<span>${actionLog.join(', ')}</span>` : '<span></span>';
+  const streetHtml = currentStreetLabel ? `<span class="streetLabel">${currentStreetLabel}</span>` : '<span></span>';
+  document.getElementById('actionLog').innerHTML = actionsHtml + streetHtml;
+
+  const actualBoardLen = h.board.length;
+  if (actualBoardLen > revealedBoardLen && !burnAnimationPending) {
+    revealNextStep();
+  } else if (!burnAnimationPending) {
+    document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('') || '<span style="color:#7d8299;">(pre-flop)</span>';
+  }
+
+  // Seating stays stable by seat NUMBER (not by ranking) — ranking already
+  // has its own home in the Leaderboard overlay; jumping seat POSITIONS
+  // around the table to match rank would be disorienting, since this is
+  // supposed to represent where everyone is actually sitting.
+  const seatOrder = [...h.activeSeats].sort((a, b) => a - b);
+  const N = seatOrder.length;
+  const ovalTable = document.getElementById('ovalTable');
+  ovalTable.querySelectorAll('.seatSign').forEach(el => el.remove());
+  seatOrder.forEach((seat, i) => {
+    const angleDeg = 90 + i * (360 / N); // seat index 0 starts at the bottom, going clockwise
+    const theta = (angleDeg * Math.PI) / 180;
+    const signX = 50 + 40 * Math.cos(theta), signY = 50 + 40 * Math.sin(theta);
+    const folded = h.foldedSeats.includes(seat);
+    const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
+    const isAllIn = h.stacks[seat] === 0 && !folded;
+    if (isAllIn && !allInAnimated[seat]) {
+      allInAnimated[seat] = true;
+      const pile = document.createElement('div');
+      pile.className = 'chipPile';
+      pile.style.left = signX + '%';
+      pile.style.top = signY + '%';
+      const stacks = [['red', 2], ['black', 5], ['green', 4], ['gold', 3]];
+      pile.innerHTML = stacks.map(([color, count]) => {
+        const chips = Array.from({ length: count }, (_, c) =>
+          `<div class="chip" style="bottom:${c * 5}px;"></div>`).join('');
+        return `<div class="chipStack ${color}">${chips}</div>`;
+      }).join('');
+      ovalTable.appendChild(pile);
+      // Only travel HALFWAY toward the center, not all the way — the
+      // midpoint between the seat and dead-center.
+      const halfwayX = (signX + 50) / 2, halfwayY = (signY + 50) / 2;
+      // Set the starting position first, THEN change it on the next paint —
+      // changing both in the same tick would skip the transition entirely,
+      // since the browser batches style changes before the first paint.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          pile.style.left = halfwayX + '%';
+          pile.style.top = halfwayY + '%';
+        });
+      });
+    }
+    const dealerTag = seat === h.dealerSeat ? ' <span class="tag">D</span>' : '';
+    const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
+
+    const sign = document.createElement('div');
+    sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
+    sign.style.left = signX + '%';
+    sign.style.top = signY + '%';
+    sign.innerHTML = `
+      <div class="podName">${seatLabel(seat)}${dealerTag}</div>
+      <div class="podCards">${cardsHtml}</div>
+      <div class="podStack">${h.stacks[seat]}${isAllIn ? ' (all-in)' : ''}</div>`;
+    ovalTable.appendChild(sign);
+  });
+
+  const resultArea = document.getElementById('resultArea');
+  const hostControls = document.getElementById('hostControls');
+  if (h.pendingReveal && revealCaughtUp) {
+    ensureRevealTimer();
+    const pending = h.pendingReveal;
+    const seat = pending.order[pending.currentIndex];
+    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on ${seatLabel(seat)} to show or muck\u2026</div>
+      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (${seatLabel(seat)})</button></div>`;
+    document.getElementById('forceMuckBtn').addEventListener('click', () => applyReveal(seat, 'muck'));
+    hostControls.innerHTML = '';
+  } else if (h.pendingVoluntaryShow && !h.pendingVoluntaryShow.decided && revealCaughtUp) {
+    ensureVoluntaryTimer();
+    resultArea.innerHTML = `<div style="color:#7d8299;">${seatLabel(h.pendingVoluntaryShow.seat)} can choose to reveal their hand\u2026</div>`;
+    hostControls.innerHTML = '';
+  } else if (h.result && revealCaughtUp) {
+    const potsHtml = h.result.pots.map((p, i) => {
+      let wonByHtml;
+      try {
+        const eligibleSet = new Set(p.eligibleSeats);
+        // Walk the ranking (best hand first) and take the FIRST group that has
+        // any member eligible for THIS pot — that's the winning tier for this
+        // specific pot. If more than one seat in that tier is eligible here,
+        // it's a genuine tie WITHIN this pot's own contest, not just "multiple
+        // names happen to have a nonzero total payout" (which could also be
+        // true for an unrelated side pot, or for an uncalled bet simply being
+        // returned — neither of those is a real split).
+        let winningGroup = null;
+        if (h.result.ranking) {
+          for (const group of h.result.ranking) {
+            const inThisPot = group.filter(e => eligibleSet.has(e.seat));
+            if (inThisPot.length > 0) { winningGroup = inThisPot; break; }
+          }
+        }
+        if (winningGroup) {
+          const isSplit = winningGroup.length > 1;
+          const share = Math.floor(p.amount / winningGroup.length);
+          wonByHtml = (isSplit ? '<span class="splitTag">Split Pot! </span>' : '') +
+            winningGroup.map(({ seat, hand }) =>
+              seatLabel(seat) + ' (' + share + ')' + (hand ? ' with ' + describeHand(hand) : '')
+            ).join(', ');
+        } else {
+          throw new Error('no winning group found for this pot');
+        }
+      } catch (e) {
+        // Fall back to the plain payout list — never let a pot-display edge
+        // case crash the whole render and leave the game stuck.
+        console.error('Pot display fallback:', e);
+        wonByHtml = Object.entries(h.result.payouts).filter(([, a]) => a > 0)
+          .map(([s, a]) => seatLabel(Number(s)) + ' (' + a + ')').join(', ');
+      }
+      return `<div class="potbox">
+        <div class="amount">${i === 0 ? 'Main Pot' : 'Side Pot ' + i}: ${p.amount}</div>
+        <div class="eligible">Won by: ${wonByHtml}</div>
+      </div>`;
+    }).join('');
+    resultArea.innerHTML = potsHtml;
+    hostControls.innerHTML = '';
+  } else {
+    resultArea.innerHTML = '';
+    hostControls.innerHTML = '';
+  }
+
+  // Deal Next Hand sits to the right of "Hand complete" — measured against
+  // its ACTUAL rendered position rather than a guessed offset, so it moves
+  // correctly regardless of font size or exact text width, and clamped so
+  // it can never end up past the oval's own rim.
+  const nextHandBtn2 = document.getElementById('nextHandBtn2');
+  if (handComplete) {
+    const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
+    const statusRect = document.getElementById('statusLine').getBoundingClientRect();
+    const desiredLeft = statusRect.right + 20;
+    const maxLeft = ovalRect.right - 90; // keep it comfortably inside the rim, not flush against it
+    const clampedLeft = Math.min(desiredLeft, maxLeft);
+    nextHandBtn2.style.left = (clampedLeft - ovalRect.left) + 'px';
+    nextHandBtn2.style.top = (statusRect.top + statusRect.height / 2 - ovalRect.top) + 'px';
+    nextHandBtn2.style.transform = 'translateY(-50%)';
+    nextHandBtn2.style.display = 'inline-block';
+    nextHandBtn2.onclick = dealNextHand;
+  } else {
+    nextHandBtn2.style.display = 'none';
+  }
+}
+
+ensureAuth();
+</script>
+</body>
+</html>
