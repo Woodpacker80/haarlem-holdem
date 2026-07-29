@@ -92,7 +92,7 @@
 </style>
 </head>
 <body>
-<button id="quitGameBtn" style="position:fixed;top:14px;left:40px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
+<button id="quitGameBtn" style="position:fixed;top:14px;left:28px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
 <div id="potBadge" style="display:none;position:fixed;top:14px;color:#c9a84c;
   font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:2px solid #c9a84c;z-index:20;"></div>
@@ -421,7 +421,7 @@ function positionPotBadge() {
   const potBadge = document.getElementById('potBadge');
   if (!table || !potBadge || document.getElementById('jumbo').style.display === 'none') return;
   const tableRect = table.getBoundingClientRect();
-  const inwardPadding = 24; // extra room beyond the table's own measured edge
+  const inwardPadding = 14; // extra room beyond the table's own measured edge
   potBadge.style.right = (window.innerWidth - tableRect.right + inwardPadding) + 'px';
 }
 window.addEventListener('resize', positionPotBadge);
