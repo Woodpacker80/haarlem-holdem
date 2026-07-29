@@ -421,7 +421,8 @@ function positionPotBadge() {
   const potBadge = document.getElementById('potBadge');
   if (!table || !potBadge || document.getElementById('jumbo').style.display === 'none') return;
   const tableRect = table.getBoundingClientRect();
-  potBadge.style.right = (window.innerWidth - tableRect.right) + 'px';
+  const inwardPadding = 24; // extra room beyond the table's own measured edge
+  potBadge.style.right = (window.innerWidth - tableRect.right + inwardPadding) + 'px';
 }
 window.addEventListener('resize', positionPotBadge);
 
@@ -664,20 +665,11 @@ function revealNextStep() {
     document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
     const streetJustShown = stepTarget === 3 ? 'flop' : stepTarget === 4 ? 'turn' : stepTarget === 5 ? 'river' : null;
     if (streetJustShown) currentStreetLabel = STREET_LABEL[streetJustShown];
+    render();
     if (revealedBoardLen < actualBoardLen) {
-      render();
       setTimeout(revealNextStep, 550); // brief beat before burning the next one
     } else {
-      // Flip this BEFORE the final render(), not after — otherwise this
-      // render() call still sees burnAnimationPending===true, so
-      // revealCaughtUp/handComplete stay false even though the board just
-      // finished. Normally a later render() (triggered by the next player
-      // action) would happen to catch the corrected flag and un-stick the
-      // screen — but an all-in runout has no further action to trigger
-      // that extra render, so the result screen and "Deal Next Hand"
-      // button would hang forever waiting for a render that never comes.
       burnAnimationPending = false;
-      render();
     }
   }, 1100);
 }
