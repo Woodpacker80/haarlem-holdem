@@ -45,16 +45,8 @@
     border:2px solid #2a1005;box-shadow:inset 0 0 40px rgba(0,0,0,0.5);}
   #tableCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     text-align:center;max-width:64%;z-index:10;}
-  .chipPile{position:absolute;transform:translate(-50%,-50%);display:flex;gap:3px;
-    align-items:flex-end;z-index:8;pointer-events:none;
+  .chipPile{position:absolute;transform:translate(-50%,-50%);z-index:8;pointer-events:none;
     transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
-  .chipStack{position:relative;width:16px;height:44px;}
-  .chipStack .chip{position:absolute;left:0;width:16px;height:16px;border-radius:50%;
-    border:1.5px solid rgba(255,255,255,0.15);box-shadow:0 1px 2px rgba(0,0,0,0.5);}
-  .chipStack.red .chip{background:#8B1E1E;}
-  .chipStack.black .chip{background:#151515;}
-  .chipStack.green .chip{background:#1a5c2e;}
-  .chipStack.gold .chip{background:#c9a84c;}
   .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
     background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
     padding:6px 9px;text-align:center;min-width:78px;
@@ -318,6 +310,43 @@ let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
 let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
+
+// Same 10-stack arrangement and edge-spot styling as the lobby artwork
+// (position, base/stroke, spot A, spot B, chip count) — just re-scaled down
+// to fit as a small, animated in-game element instead of a static banner.
+function buildAllInChipsSVG() {
+  const stacks = [
+    [418, 220, '#f3ecd8', '#c9a84c', '#050505', '#c9a84c', 6],
+    [432, 245, '#050505', '#2a2a2a', '#ffffff', '#FF1744', 4],
+    [472, 251, '#050505', '#2a2a2a', '#ffffff', '#FF1744', 4],
+    [499, 258, '#050505', '#2a2a2a', '#ffffff', '#FF1744', 4],
+    [453, 190, '#f3ecd8', '#c9a84c', '#050505', '#c9a84c', 6],
+    [466, 210, '#00C853', '#00842f', '#ffffff', '#00842f', 4],
+    [506, 216, '#00C853', '#00842f', '#ffffff', '#00842f', 4],
+    [546, 222, '#00C853', '#00842f', '#ffffff', '#00842f', 4],
+    [526, 245, '#FF1744', '#a30d29', '#ffffff', '#050505', 4],
+    [566, 251, '#FF1744', '#a30d29', '#ffffff', '#050505', 4],
+  ];
+  const rx = 23, ry = 8.5, layerGap = 7;
+  const offsetX = 395, offsetY = 155; // normalizes the lobby's coordinates to a tight (0,0)-based box
+  let inner = '';
+  for (const [cx, cyBase, fill, stroke, spotA, spotB, layers] of stacks) {
+    for (let i = 0; i < layers; i++) {
+      const cy = cyBase - i * layerGap;
+      const x = cx - offsetX, y = cy - offsetY;
+      const ringRx = rx * 0.85, ringRy = ry * 0.85, innerRx = rx * 0.62, innerRy = ry * 0.62;
+      const sw = rx * 0.13, dash = rx * 0.2;
+      inner += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`;
+      inner += `<ellipse cx="${x}" cy="${y}" rx="${ringRx.toFixed(1)}" ry="${ringRy.toFixed(1)}" fill="none" stroke="${spotA}" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash.toFixed(1)} ${dash.toFixed(1)}"/>`;
+      inner += `<ellipse cx="${x}" cy="${y}" rx="${ringRx.toFixed(1)}" ry="${ringRy.toFixed(1)}" fill="none" stroke="${spotB}" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash.toFixed(1)} ${dash.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"/>`;
+      inner += `<ellipse cx="${x}" cy="${y}" rx="${innerRx.toFixed(1)}" ry="${innerRy.toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+    }
+  }
+  // Displayed noticeably smaller than the old 4-stack version, which was
+  // already reported as too big — the viewBox stays true to the original
+  // proportions, only the rendered width/height shrinks.
+  return `<svg viewBox="0 0 194 112" width="62" height="36" style="display:block;">${inner}</svg>`;
+}
 let rankingSyncedForResult = false; // whether frozenRankOrder already reflects the CURRENT hand's own result
 watchPlayerNames((names) => { playerNames = names; render(); });
 
@@ -829,12 +858,7 @@ function render() {
       pile.className = 'chipPile';
       pile.style.left = signX + '%';
       pile.style.top = signY + '%';
-      const stacks = [['red', 2], ['black', 5], ['green', 4], ['gold', 3]];
-      pile.innerHTML = stacks.map(([color, count]) => {
-        const chips = Array.from({ length: count }, (_, c) =>
-          `<div class="chip" style="bottom:${c * 5}px;"></div>`).join('');
-        return `<div class="chipStack ${color}">${chips}</div>`;
-      }).join('');
+      pile.innerHTML = buildAllInChipsSVG();
       ovalTable.appendChild(pile);
       // Only travel HALFWAY toward the center, not all the way — the
       // midpoint between the seat and dead-center.
