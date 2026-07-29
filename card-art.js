@@ -212,12 +212,12 @@
     // one fixed angle, so there's no "other end" to serve. Upright is
     // simply correct here, not a physical-card convention to replicate.
     ctx.save();
-    ctx.translate(m, size - m - blockHeight);
+    ctx.translate(m, size - m - blockHeight + size * 0.02);
     drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
     ctx.restore();
 
     ctx.save();
-    ctx.translate(size - m - blockWidth, size - m - blockHeight);
+    ctx.translate(size - m - blockWidth, size - m - blockHeight + size * 0.02);
     drawBlock(ctx, rankText, suitSymbol, color, rankSize, suitSize, gap);
     ctx.restore();
   }
