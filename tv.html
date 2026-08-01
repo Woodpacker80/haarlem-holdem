@@ -811,6 +811,17 @@ function render() {
   // visible (board animation caught up) — must happen before anything else
   // in this function reads frozenRankOrder, or the leaderboard would still
   // show the PREVIOUS hand's standings for one extra render pass.
+  // Self-healing guard: revealNextStep()'s setTimeout chain only clears
+  // burnAnimationPending in its own final step. If that chain is ever
+  // interrupted (this render() firing mid-animation from an unrelated state
+  // update, for example), the flag can get stuck true forever with no
+  // exception thrown — silently blocking handComplete/"Deal Next Hand"
+  // permanently, since nothing else was watching it. Since render() runs on
+  // every state change anyway, use it to double-check: if the board is
+  // already numerically fully revealed, there's no legitimate reason to
+  // still be "mid-animation" — clear the flag here too rather than trusting
+  // the timeout chain alone to always finish cleanly.
+  if (h.board.length <= revealedBoardLen) burnAnimationPending = false;
   const revealCaughtUp = h.board.length <= revealedBoardLen && !burnAnimationPending;
   if (h.result && revealCaughtUp && !rankingSyncedForResult) {
     frozenRankOrder = [...h.activeSeats].sort((a, b) => h.stacks[b] - h.stacks[a]);
