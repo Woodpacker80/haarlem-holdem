@@ -56,9 +56,11 @@
 </style>
 </head>
 <body>
-<h1>Phone — Player</h1>
-<div id="conn">connecting…</div>
-<div id="seatBadge">joining…</div>
+<div id="headerBlock" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+  <h1 id="welcomeLine">Welcome to Haarlem Hold'em</h1>
+  <div id="seatBadge">joining…</div>
+  <div id="conn">connecting…</div>
+</div>
 <div id="error"></div>
 
 <div id="nameGate" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:20px;">
@@ -426,6 +428,7 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   const name = nameInput.value.trim();
   if (!name) { nameInput.focus(); return; } // no empty names allowed past this point
   currentName = name;
+  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em, ${name}`;
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
   resizeSqRenderer(); // #squeezeContainer was 0×0 while gameArea was hidden, so the very
