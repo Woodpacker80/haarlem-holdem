@@ -6,6 +6,7 @@
 <title>Haarlem Hold'em — Phone</title>
 <script src="sfx.js"></script>
 <script src="card-art.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#0F2A55;color:#e9e2cf;
     font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
@@ -19,10 +20,10 @@
   .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
     padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
   .card.red{color:#BE1622;}
-  .cardSlotWrap{position:relative;display:inline-block;width:120px;height:120px;margin:0 4px;}
-  .holeCardImg{position:absolute;top:0;left:0;width:120px;height:120px;border-radius:6px;
-    box-shadow:0 2px 4px rgba(0,0,0,0.4);user-select:none;-webkit-user-drag:none;
-    -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+  #squeezeContainer{position:relative;width:260px;height:220px;margin:0 auto;
+    border-radius:10px;overflow:hidden;background:#080c18;touch-action:none;
+    border:1px solid rgba(201,168,76,0.35);}
+  #squeezeContainer canvas{display:block;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -61,16 +62,8 @@
 <div id="board"></div>
 <div id="info"></div>
 <div id="myHand" style="text-align:center;">
-  <div class="cardSlotWrap">
-    <img id="holeCard0Back" class="holeCardImg">
-    <img id="holeCard0Face" class="holeCardImg" style="display:none;">
-  </div>
-  <div class="cardSlotWrap">
-    <img id="holeCard1Back" class="holeCardImg">
-    <img id="holeCard1Face" class="holeCardImg" style="display:none;">
-  </div>
-  <div><button id="peekBtn" type="button" style="touch-action:none;margin-top:8px;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;">Hold to Peek</button></div>
-  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:4px;"></div>
+  <div id="squeezeContainer"></div>
+  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">waiting for the deal…</div>
 </div>
 <div id="actions"></div>
 <div id="others"></div>
@@ -97,41 +90,248 @@ let currentName = null;
 
 let unsubscribeHoleCards = null;
 
-// Hold-to-peek: cards default to face-down and only reveal for as long as a
-// finger is actually touching them — released the instant you let go. This
-// replaces the squeeze mechanic (reverted — too much for a small screen) with
-// something far simpler that solves the same real need: checking your hand
-// in a group without anyone else catching a glimpse.
+// Squeeze mechanic (ported from squeeze-mechanic-V7_2.html, fully replaces the
+// earlier Hold-to-Peek button): a small self-contained Three.js scene showing
+// your two hole cards face-down on felt. Dragging upward on them curls the
+// near corner back — exactly like squeezing real cardstock to peek at the
+// index — and releasing lets them snap back flat. Real dealt rank/suit is
+// painted onto each card's face texture the moment cards arrive; before that
+// they render as blank-faced backs (no data to show yet).
 //
-// Both the back AND face image for each card are loaded ONCE and never
-// touched again — peeking only ever toggles which of the two is visible.
-// An earlier version re-set .src on every peek, which forced the browser to
-// re-decode a fresh image mid-gesture — that's what produced the "flashes
-// white" symptom. Two permanently-loaded images with a display toggle
-// avoids that entirely, since nothing ever needs to be redecoded.
-const backDataUrl = CardArt.renderBack(400).toDataURL();
-document.getElementById('holeCard0Back').src = backDataUrl;
-document.getElementById('holeCard1Back').src = backDataUrl;
-function setPeek(peeking) {
-  document.getElementById('holeCard0Back').style.display = peeking ? 'none' : 'block';
-  document.getElementById('holeCard0Face').style.display = peeking ? 'block' : 'none';
-  document.getElementById('holeCard1Back').style.display = peeking ? 'none' : 'block';
-  document.getElementById('holeCard1Face').style.display = peeking ? 'block' : 'none';
+// Camera/curl math and the four-corner index-stamping approach are ported
+// unchanged from the demo (already fixed there: viewport meta tag +
+// devicePixelRatio, confirmed on a real phone to have no more thumb-blocking
+// or corner-clipping). The only real change is that "window" framing became
+// "container" framing, since this lives inline in the page instead of taking
+// over the whole screen, and textures are generated from real cards instead
+// of a fixed demo Ace/2.
+const squeezeContainer = document.getElementById('squeezeContainer');
+const sqScene = new THREE.Scene();
+sqScene.background = new THREE.Color(0x080c18);
+sqScene.fog = new THREE.Fog(0x080c18, 4, 9);
+const sqCamera = new THREE.PerspectiveCamera(60, 1, 0.05, 50);
+const sqCalibratedPos = new THREE.Vector3(-1.87, 0.69, 3.67);
+const sqCalibratedLookAt = new THREE.Vector3(-0.32, -0.15, -0.52);
+const sqViewDir = sqCalibratedPos.clone().sub(sqCalibratedLookAt).normalize();
+const sqWorldUp = new THREE.Vector3(0, 1, 0);
+const sqCamRight = new THREE.Vector3().crossVectors(sqViewDir, sqWorldUp).normalize();
+const sqCamUp = new THREE.Vector3().crossVectors(sqCamRight, sqViewDir).normalize();
+const SQ_NUDGE_X = -0.12;
+const SQ_FRAME_MIN = new THREE.Vector3(-0.909 + SQ_NUDGE_X, -0.01, -0.962);
+const SQ_FRAME_MAX = new THREE.Vector3(0.809, 0.33, 1.222);
+const sqInitialTarget = new THREE.Vector3(-0.05, 0.16, 0.13);
+let sqHalfW = 0, sqHalfH = 0;
+for (const cx of [SQ_FRAME_MIN.x, SQ_FRAME_MAX.x]) {
+  for (const cy of [SQ_FRAME_MIN.y, SQ_FRAME_MAX.y]) {
+    for (const cz of [SQ_FRAME_MIN.z, SQ_FRAME_MAX.z]) {
+      const v = new THREE.Vector3(cx, cy, cz).sub(sqInitialTarget);
+      sqHalfW = Math.max(sqHalfW, Math.abs(v.dot(sqCamRight)));
+      sqHalfH = Math.max(sqHalfH, Math.abs(v.dot(sqCamUp)));
+    }
+  }
 }
-setPeek(false);
-const peekBtn = document.getElementById('peekBtn');
-let peekHideTimer = null;
-function hidePeekAfterDelay() {
-  if (peekHideTimer) clearTimeout(peekHideTimer);
-  peekHideTimer = setTimeout(() => setPeek(false), 1200); // stays visible a moment after release
+const SQ_FRAME_SAFETY = 1.04;
+function updateSqCameraFraming() {
+  const w = squeezeContainer.clientWidth, h = squeezeContainer.clientHeight;
+  const aspect = w / h;
+  sqCamera.aspect = aspect;
+  const vFovHalf = THREE.MathUtils.degToRad(sqCamera.fov) / 2;
+  const hFovHalf = Math.atan(Math.tan(vFovHalf) * aspect);
+  const distance = Math.max(sqHalfH / Math.tan(vFovHalf), sqHalfW / Math.tan(hFovHalf)) * SQ_FRAME_SAFETY;
+  sqCamera.position.copy(sqInitialTarget).add(sqViewDir.clone().multiplyScalar(distance));
+  sqCamera.updateProjectionMatrix();
+  sqCamera.lookAt(sqInitialTarget);
 }
-peekBtn.addEventListener('pointerdown', () => {
-  if (peekHideTimer) clearTimeout(peekHideTimer); // pressing again cancels any pending hide
-  setPeek(true);
+const sqRenderer = new THREE.WebGLRenderer({ antialias: true });
+sqRenderer.setPixelRatio(window.devicePixelRatio || 1);
+squeezeContainer.appendChild(sqRenderer.domElement);
+function resizeSqRenderer() {
+  sqRenderer.setSize(squeezeContainer.clientWidth, squeezeContainer.clientHeight);
+  updateSqCameraFraming();
+}
+sqScene.add(new THREE.AmbientLight(0x404860, 0.75));
+const sqKey = new THREE.DirectionalLight(0xfff2d6, 1.0);
+sqKey.position.set(1.6, 3.2, -1.6);
+sqScene.add(sqKey);
+const sqRim = new THREE.PointLight(0xc9a84c, 0.55, 12);
+sqRim.position.set(0, 1.2, -3.0);
+sqScene.add(sqRim);
+const sqTable = new THREE.Mesh(
+  new THREE.PlaneGeometry(24, 24),
+  new THREE.MeshStandardMaterial({ color: 0x0d1626, roughness: 0.95 })
+);
+sqTable.rotation.x = -Math.PI / 2;
+sqScene.add(sqTable);
+
+function sqMakeTexture(draw, size = 512) {
+  const cnv = document.createElement('canvas');
+  cnv.width = cnv.height = size;
+  draw(cnv.getContext('2d'), size);
+  const tex = new THREE.CanvasTexture(cnv);
+  tex.flipY = false;
+  tex.needsUpdate = true;
+  return tex;
+}
+const sqBackTexture = sqMakeTexture((ctx, size) => {
+  ctx.fillStyle = '#BE1622';
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = 'rgba(201,168,76,0.7)';
+  ctx.lineWidth = size * 0.035;
+  ctx.strokeRect(size * 0.08, size * 0.08, size * 0.84, size * 0.84);
+  ctx.beginPath();
+  ctx.moveTo(size / 2, size * 0.18);
+  ctx.lineTo(size * 0.82, size / 2);
+  ctx.lineTo(size / 2, size * 0.82);
+  ctx.lineTo(size * 0.18, size / 2);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(201,168,76,0.5)';
+  ctx.lineWidth = size * 0.018;
+  ctx.stroke();
 });
-peekBtn.addEventListener('pointerup', hidePeekAfterDelay);
-peekBtn.addEventListener('pointercancel', hidePeekAfterDelay);
-peekBtn.addEventListener('pointerleave', hidePeekAfterDelay);
+const sqBlankFaceTexture = sqMakeTexture((ctx, size) => {
+  ctx.fillStyle = '#f5f1e6';
+  ctx.fillRect(0, 0, size, size);
+});
+function sqMakeFaceTexture(rank, suit, color) {
+  return sqMakeTexture((ctx, size) => {
+    ctx.fillStyle = '#f5f1e6';
+    ctx.fillRect(0, 0, size, size);
+    const rankSize = size * 0.09, suitSize = size * 0.065;
+    const m = size * 0.008, gap = size * 0.012;
+    const off = document.createElement('canvas');
+    off.width = size; off.height = size;
+    const octx = off.getContext('2d');
+    octx.fillStyle = color;
+    octx.textAlign = 'left';
+    octx.textBaseline = 'top';
+    octx.font = `700 ${rankSize}px Georgia, serif`;
+    const rankW = octx.measureText(rank).width;
+    octx.font = `700 ${suitSize}px Georgia, serif`;
+    const suitW = octx.measureText(suit).width;
+    octx.font = `700 ${rankSize}px Georgia, serif`;
+    octx.fillText(rank, 0, 0);
+    octx.font = `700 ${suitSize}px Georgia, serif`;
+    octx.fillText(suit, rankW + gap, 0);
+    const blockW = rankW + gap + suitW;
+    const blockH = Math.max(rankSize, suitSize) * 1.15;
+    function stampCorner(alignRight, alignBottom) {
+      const destX = alignRight ? size - m - blockW : m;
+      const destY = alignBottom ? size - m - blockH : m;
+      ctx.save();
+      if (alignBottom) {
+        ctx.translate(destX, destY + blockH);
+        ctx.scale(1, -1);
+        ctx.drawImage(off, 0, 0);
+      } else {
+        ctx.drawImage(off, destX, destY);
+      }
+      ctx.restore();
+    }
+    stampCorner(false, false);
+    stampCorner(true, false);
+    stampCorner(false, true);
+    stampCorner(true, true);
+  });
+}
+
+const SQ_W = 1.4, SQ_H = 2.0, SQ_S = 0.62;
+function sqBuildFlatCardGeometry(w, h, segs) {
+  const geo = new THREE.PlaneGeometry(w, h, segs, segs);
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(w / 2, 0, h / 2);
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    uv.setXY(i, x / w, z / h);
+  }
+  uv.needsUpdate = true;
+  return geo;
+}
+function sqBuildCurlableCard(faceTex) {
+  const geo = sqBuildFlatCardGeometry(SQ_W, SQ_H, 64);
+  const pos = geo.attributes.position;
+  const bx = new Float32Array(pos.count);
+  const bz = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) { bx[i] = pos.getX(i); bz[i] = pos.getZ(i); }
+  const backMat = new THREE.MeshStandardMaterial({ map: sqBackTexture, side: THREE.FrontSide, roughness: 0.8 });
+  const faceMat = new THREE.MeshBasicMaterial({ map: faceTex, side: THREE.BackSide });
+  const faceMesh = new THREE.Mesh(geo, faceMat);
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(geo, backMat), faceMesh);
+  return { geo, pos, baseX: bx, baseZ: bz, group, faceMesh };
+}
+const sqCardA = sqBuildCurlableCard(sqBlankFaceTexture);
+const sqCardB = sqBuildCurlableCard(sqBlankFaceTexture);
+sqCardA.group.position.set(-0.86 + SQ_NUDGE_X, 0.006, -0.9);
+sqCardB.group.position.set(-0.86 + 0.22 + SQ_NUDGE_X, 0.003, -0.9 + 0.06);
+sqScene.add(sqCardA.group, sqCardB.group);
+const sqCurlCards = [sqCardA, sqCardB];
+
+const SQRT2 = Math.SQRT2;
+const sqKAxis = { x: -1 / SQRT2, z: 1 / SQRT2 };
+const sqNHat  = { x: -1 / SQRT2, z: -1 / SQRT2 };
+const SQ_THETA_MAX = 130 * Math.PI / 180;
+const sqDMax = SQ_S / SQRT2;
+const cornerCx = 0, cornerCz = 1; // fixed to the corner tested and confirmed on-device
+
+function sqCurlOneCard(card, peel) {
+  const thetaTotal = peel * SQ_THETA_MAX;
+  const smallAngle = thetaTotal < 0.0005;
+  const rho = smallAngle ? 0 : sqDMax / thetaTotal;
+  for (let i = 0; i < card.pos.count; i++) {
+    const rawX = card.baseX[i], rawZ = card.baseZ[i];
+    const x = cornerCx === 0 ? rawX : SQ_W - rawX;
+    const z = cornerCz === 0 ? rawZ : SQ_H - rawZ;
+    const d = (SQ_S - x - z) / SQRT2;
+    if (d <= 0 || smallAngle) {
+      card.pos.setXYZ(i, rawX, 0, rawZ);
+      continue;
+    }
+    const phi = d / rho;
+    const perp = rho * Math.sin(phi);
+    const y = rho * (1 - Math.cos(phi));
+    const c = (x - SQ_S) * sqKAxis.x + z * sqKAxis.z;
+    const Ax = SQ_S + c * sqKAxis.x;
+    const Az = 0 + c * sqKAxis.z;
+    let nx = Ax + perp * sqNHat.x;
+    let nz = Az + perp * sqNHat.z;
+    if (cornerCx !== 0) nx = SQ_W - nx;
+    if (cornerCz !== 0) nz = SQ_H - nz;
+    card.pos.setXYZ(i, nx, y, nz);
+  }
+  card.pos.needsUpdate = true;
+  card.geo.computeVertexNormals();
+}
+function sqApplyCurl(peel) {
+  sqCurlCards.forEach(card => sqCurlOneCard(card, peel));
+}
+
+let sqPeel = 0, sqTargetPeel = 0, sqDragging = false, sqDragStartY = 0, sqDragStartPeel = 0;
+sqRenderer.domElement.addEventListener('pointerdown', (e) => {
+  sqDragging = true;
+  sqDragStartY = e.clientY; sqDragStartPeel = sqTargetPeel;
+  sqRenderer.domElement.setPointerCapture(e.pointerId);
+});
+sqRenderer.domElement.addEventListener('pointermove', (e) => {
+  if (!sqDragging) return;
+  const dy = sqDragStartY - e.clientY;
+  sqTargetPeel = Math.min(1, Math.max(0, sqDragStartPeel + dy / 160));
+});
+function sqRelease() { sqDragging = false; sqTargetPeel = 0; } // let go = cards snap flat, like real cardstock
+sqRenderer.domElement.addEventListener('pointerup', sqRelease);
+sqRenderer.domElement.addEventListener('pointercancel', sqRelease);
+sqRenderer.domElement.addEventListener('pointerleave', sqRelease);
+
+function sqAnimate() {
+  sqPeel += (sqTargetPeel - sqPeel) * 0.2;
+  sqApplyCurl(sqPeel);
+  sqRenderer.render(sqScene, sqCamera);
+  requestAnimationFrame(sqAnimate);
+}
+resizeSqRenderer();
+sqAnimate();
+window.addEventListener('resize', resizeSqRenderer);
 // Single place that "becomes" a given seat: updates mySeat, the on-screen
 // badge, and — importantly — re-subscribes the hole-cards listener to the
 // correct path. Without this, if a rejoin ever landed on a DIFFERENT seat
@@ -147,9 +347,12 @@ function adoptSeat(seat) {
     if (cards) {
       try {
         const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
-        document.getElementById('holeCard0Face').src = CardArt.renderFaceBold(cards[0].rank, suitName[cards[0].suit], 400).toDataURL();
-        document.getElementById('holeCard1Face').src = CardArt.renderFaceBold(cards[1].rank, suitName[cards[1].suit], 400).toDataURL();
-        document.getElementById('handHint').textContent = '';
+        const suitColor = { '\u2660': '#1a1a1a', '\u2663': '#1a1a1a', '\u2665': '#8c1d2b', '\u2666': '#8c1d2b' };
+        sqCardA.faceMesh.material.map = sqMakeFaceTexture(cards[0].rank, cards[0].suit, suitColor[cards[0].suit]);
+        sqCardA.faceMesh.material.needsUpdate = true;
+        sqCardB.faceMesh.material.map = sqMakeFaceTexture(cards[1].rank, cards[1].suit, suitColor[cards[1].suit]);
+        sqCardB.faceMesh.material.needsUpdate = true;
+        document.getElementById('handHint').textContent = 'squeeze to peek';
       } catch (e) {
         document.getElementById('error').textContent = '⚠ card render failed: ' + e.message;
         console.error('Hole card render failed:', e);
@@ -157,8 +360,7 @@ function adoptSeat(seat) {
     } else {
       document.getElementById('handHint').textContent = 'waiting for the deal…';
     }
-    if (peekHideTimer) clearTimeout(peekHideTimer);
-    setPeek(false); // new cards always start hidden, never auto-revealed
+    sqTargetPeel = 0; // new cards always start flat/closed, never auto-revealed
   });
 }
 
