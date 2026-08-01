@@ -311,6 +311,12 @@ let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
 let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
+// Set once heads-up (or any last-one-standing) elimination makes dealing
+// another hand impossible. render() checks this on every pass — unlike a
+// one-off message written directly into resultArea, which the very next
+// render() call (fired by any unrelated state update) would silently wipe
+// out again, since render() unconditionally rewrites that area every time.
+let gameOverInfo = null;
 
 // Same 10-stack arrangement and edge-spot styling as the lobby artwork
 // (position, base/stroke, spot A, spot B, chip count) — just re-scaled down
@@ -482,6 +488,7 @@ function publish() {
 
 function dealFirstHand() {
   SFX.unlock();
+  gameOverInfo = null;
   const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
   const startStack = parseInt(document.getElementById('startStack').value, 10);
   const stacks = {};
@@ -559,7 +566,8 @@ function dealNextHand() {
   gameConfig.stacks = handState.stacks;
   gameConfig.activeSeats = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] > 0);
   if (gameConfig.activeSeats.length < 2) {
-    document.getElementById('resultArea').innerHTML = '<div style="color:#c9a84c;">Game over — not enough players with chips left.</div>';
+    gameOverInfo = { winnerSeat: gameConfig.activeSeats[0] };
+    render(); // reflect immediately rather than waiting for the next unrelated state update
     return;
   }
   // Advance dealer button to the next active seat.
@@ -697,6 +705,7 @@ document.getElementById('leaderboardBtn').addEventListener('click', () => {
 document.getElementById('quitGameBtn').addEventListener('click', async () => {
   handState = null;
   gameConfig = null;
+  gameOverInfo = null;
   await clearGameState();
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'block';
@@ -727,6 +736,7 @@ document.getElementById('clearBansBtn').addEventListener('click', clearBans);
 // here just sits banned until the host clicks Clear All Bans again next
 // time, which is exactly the explicit, host-controlled behavior wanted.
 document.getElementById('startNewGameBtn').addEventListener('click', async () => {
+  gameOverInfo = null;
   await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'block';
@@ -979,13 +989,23 @@ function render() {
     resultArea.innerHTML = '';
     hostControls.innerHTML = '';
   }
+  if (gameOverInfo) {
+    // Overrides whatever the branch above just set — this takes priority
+    // and persists across every future render() call for this game, unlike
+    // the one-off message dealNextHand() used to write directly (which the
+    // very next render() would silently overwrite again).
+    resultArea.innerHTML = `<div style="color:#c9a84c;font-weight:600;">🏆 Game Over — ${seatLabel(gameOverInfo.winnerSeat)} wins!</div>`;
+    hostControls.innerHTML = '';
+  }
 
   // Deal Next Hand sits to the right of "Hand complete" — measured against
   // its ACTUAL rendered position rather than a guessed offset, so it moves
   // correctly regardless of font size or exact text width, and clamped so
   // it can never end up past the oval's own rim.
   const nextHandBtn2 = document.getElementById('nextHandBtn2');
-  if (handComplete) {
+  if (gameOverInfo) {
+    nextHandBtn2.style.display = 'none';
+  } else if (handComplete) {
     const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
     const statusRect = document.getElementById('statusLine').getBoundingClientRect();
     const desiredLeft = statusRect.right + 20;
