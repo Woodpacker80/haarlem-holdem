@@ -799,6 +799,17 @@ function seatCardsHtml(h, seat) {
     if (decision === 'mucked') return muckedCardsHtml();
     return '\uD83C\uDCA0 \uD83C\uDCA0'; // hasn't decided yet
   }
+  if (!h.result) {
+    // Called here specifically for the "show it early" all-in case (see the
+    // showCardsEarly check at the call site) — there's no result yet, but
+    // once an all-in makes the rest of the hand a pure card race, this
+    // seat's real hand is exactly what a broadcast would already be
+    // showing, board runout still in progress or not.
+    const folded = h.foldedSeats.includes(seat);
+    const anyAllIn = h.activeSeats.some(s => h.stacks[s] === 0 && !h.foldedSeats.includes(s));
+    if (!folded && anyAllIn) return h.holeCards[seat].map(renderCard).join('');
+    return '\uD83C\uDCA0 \uD83C\uDCA0';
+  }
   if (h.result) {
     if (h.result.uncontested) {
       return (h.result.voluntaryReveal && h.result.voluntaryReveal.seat === seat)
@@ -915,7 +926,17 @@ function render() {
       });
     }
     const dealerTag = seat === h.dealerSeat ? ' <span class="tag">D</span>' : '';
-    const cardsHtml = revealCaughtUp ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
+    // Real poker convention: once an all-in makes the rest of the hand a
+    // pure card race (no more betting possible), everyone's hands go on
+    // display immediately — before the board even starts running out, not
+    // gated behind the flop/turn/river reveal ANIMATION finishing. Without
+    // this, seatCardsHtml()'s existing all-in branch ("everyone shows, no
+    // muck") was correct but unreachable until revealCaughtUp turned true,
+    // which only happens once the whole animated runout completes — so
+    // cards sat face-down the entire time and only appeared right at the
+    // river, instead of right when the all-in itself happened.
+    const showCardsEarly = anyAllInThisHand && !folded;
+    const cardsHtml = (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
 
     const sign = document.createElement('div');
     sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
