@@ -904,7 +904,15 @@ function render() {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
     const isAllIn = h.stacks[seat] === 0 && !folded;
-    if ((isAllIn || (anyAllInThisHand && !folded)) && !allInAnimated[seat]) {
+    // Don't fire this for the OTHER seat while it's still literally their
+    // turn to act — anyAllInThisHand goes true the instant one player
+    // shoves, before their opponent has even pressed Call. Without this
+    // guard, the opponent's chips (and cards, below) would animate/reveal
+    // immediately on the shove, before they'd made any decision at all.
+    // isAllIn itself is unaffected — the shover's own chips should still
+    // move the moment THEY shove, regardless of whose turn it is next.
+    const stillWaitingOnThisSeat = h.bettingRound && h.bettingRound.actingSeat === seat;
+    if ((isAllIn || (anyAllInThisHand && !folded && !stillWaitingOnThisSeat)) && !allInAnimated[seat]) {
       allInAnimated[seat] = true;
       const pile = document.createElement('div');
       pile.className = 'chipPile';
@@ -935,7 +943,7 @@ function render() {
     // which only happens once the whole animated runout completes — so
     // cards sat face-down the entire time and only appeared right at the
     // river, instead of right when the all-in itself happened.
-    const showCardsEarly = anyAllInThisHand && !folded;
+    const showCardsEarly = anyAllInThisHand && !folded && !stillWaitingOnThisSeat;
     const cardsHtml = (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
 
     const sign = document.createElement('div');
