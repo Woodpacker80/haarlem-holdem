@@ -27,6 +27,10 @@
   #squeezeHorizonLine{position:absolute;left:0;right:0;top:32%;height:1.5px;
     background:#c9a84c;
     pointer-events:none;z-index:5;}
+  #squeezeStackReadout{position:absolute;left:0;right:0;top:0;height:32%;
+    display:flex;align-items:center;justify-content:center;
+    color:#c9a84c;font-size:15px;letter-spacing:.03em;font-weight:600;
+    pointer-events:none;z-index:5;text-align:center;padding:0 10px;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -65,7 +69,7 @@
 <div id="board"></div>
 <div id="info"></div>
 <div id="myHand" style="text-align:center;">
-  <div id="squeezeContainer"><div id="squeezeHorizonLine"></div></div>
+  <div id="squeezeContainer"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">waiting for the deal…</div>
 </div>
 <div id="actions"></div>
@@ -465,6 +469,7 @@ function render(state) {
   const errorEl = document.getElementById('error');
   if (!state) {
     document.getElementById('info').textContent = 'Waiting for the host to start the game…';
+    document.getElementById('squeezeStackReadout').textContent = '';
     document.getElementById('actions').innerHTML = '';
     document.getElementById('board').innerHTML = '';
     document.getElementById('others').innerHTML = '';
@@ -481,6 +486,11 @@ function render(state) {
 
   document.getElementById('board').innerHTML = state.board.map(renderCard).join('') || '<span style="color:#7d8299;font-size:12px;">pre-flop</span>';
 
+  const myStack = state.stacks[mySeat];
+  const myBet = state.bets[mySeat] || 0;
+  const myToCall = Math.max(0, (state.currentBet || 0) - myBet);
+  document.getElementById('squeezeStackReadout').textContent =
+    `Stack ${myStack}` + (myToCall > 0 ? ` · To call ${myToCall}` : '');
   document.getElementById('info').textContent = state.result
     ? 'Hand complete — waiting for the next hand'
     : '';
