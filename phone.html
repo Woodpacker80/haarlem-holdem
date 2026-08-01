@@ -20,7 +20,7 @@
   .card{display:inline-block;background:#f5f1e6;color:#1a1a1a;border-radius:6px;
     padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
   .card.red{color:#BE1622;}
-  #squeezeContainer{position:relative;width:260px;height:220px;margin:0 auto;
+  #squeezeContainer{position:relative;width:300px;height:260px;margin:0 auto;
     border-radius:10px;overflow:hidden;background:#182e27;touch-action:none;
     border:1px solid rgba(201,168,76,0.35);}
   #squeezeContainer canvas{display:block;touch-action:none;}
@@ -481,11 +481,9 @@ function render(state) {
 
   document.getElementById('board').innerHTML = state.board.map(renderCard).join('') || '<span style="color:#7d8299;font-size:12px;">pre-flop</span>';
 
-  const myStack = state.stacks[mySeat];
-  const myBet = state.bets[mySeat] || 0;
   document.getElementById('info').textContent = state.result
     ? 'Hand complete — waiting for the next hand'
-    : `Your stack: ${myStack}   Your bet: ${myBet}   Current bet: ${state.currentBet}`;
+    : '';
 
   // Other seats, status only (no cards unless it's a real showdown reveal).
   const others = state.activeSeats.filter(s => s !== mySeat).map(seat => {
