@@ -42,9 +42,11 @@
   button:hover{background:rgba(201,168,76,0.15);}
   button.fold{border-color:#BE1622;color:#BE1622;}
   button.fold:hover{background:rgba(190,22,34,0.15);}
-  #others{font-size:11px;color:#7d8299;text-align:center;line-height:1.7;}
-  #others .folded{text-decoration:line-through;color:#3a3f52;}
-  #others .acting{color:#c9a84c;font-weight:700;}
+  #others{font-size:12px;text-align:center;line-height:1.7;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .otherSeat{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:14px;
+    border:1px solid rgba(125,130,153,0.35);color:#c7cbe0;background:rgba(125,130,153,0.08);}
+  .otherSeat.folded{text-decoration:line-through;color:#3a3f52;border-color:rgba(58,63,82,0.35);background:transparent;}
+  .otherSeat.acting{color:#c9a84c;font-weight:700;border-color:rgba(201,168,76,0.5);background:rgba(201,168,76,0.1);}
   #resultBox{text-align:center;font-size:13px;color:#c9a84c;max-width:320px;}
   #error{color:#BE1622;font-size:11px;min-height:14px;}
   #gameArea{width:100%;max-width:340px;border:1.5px solid #c9a84c;border-radius:14px;
@@ -82,7 +84,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -96,6 +98,7 @@ let wasDisconnected = false;
 // name (no realistic disconnect happened), while a genuine fresh session
 // still gets asked for a name every time, as intended.
 let currentName = null;
+let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
 
 let unsubscribeHoleCards = null;
 
@@ -454,6 +457,8 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
     }
   });
 
+  watchPlayerNames((names) => { playerNames = names; });
+
   watchPublicState((state) => {
     latestPublicState = state;
     document.getElementById('debug').textContent = 'mySeat=' + mySeat + ' | raw state: ' + JSON.stringify(state);
@@ -502,10 +507,11 @@ function render(state) {
   const others = state.activeSeats.filter(s => s !== mySeat).map(seat => {
     const folded = state.foldedSeats.includes(seat);
     const acting = state.actingSeat === seat;
-    const cls = folded ? 'folded' : (acting ? 'acting' : '');
+    const cls = 'otherSeat' + (folded ? ' folded' : '') + (acting ? ' acting' : '');
+    const name = (playerNames[seat] && playerNames[seat].display) || `Seat ${seat + 1}`;
     const revealedCards = state.revealedHoleCards && state.revealedHoleCards[seat]
       ? ' ' + state.revealedHoleCards[seat].map(renderCard).join('') : '';
-    return `<div class="${cls}">Seat ${seat + 1}: ${state.stacks[seat]} chips${revealedCards}</div>`;
+    return `<div class="${cls}">${name}: ${state.stacks[seat]} chips${revealedCards}</div>`;
   }).join('');
   document.getElementById('others').innerHTML = others;
 
