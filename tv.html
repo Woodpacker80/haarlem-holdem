@@ -867,6 +867,13 @@ function render() {
   // supposed to represent where everyone is actually sitting.
   const seatOrder = [...h.activeSeats].sort((a, b) => a - b);
   const N = seatOrder.length;
+  // Whether ANY non-folded seat is genuinely all-in (stack at 0) right now —
+  // used below so a caller's chips slide to center too, not just the short
+  // stack's. A call that doesn't bring the caller's own stack to 0 (the
+  // common case when they have the bigger stack) previously got no chip
+  // animation at all, since isAllIn alone only ever matched the all-in
+  // player themselves.
+  const anyAllInThisHand = seatOrder.some(s => h.stacks[s] === 0 && !h.foldedSeats.includes(s));
   const ovalTable = document.getElementById('ovalTable');
   ovalTable.querySelectorAll('.seatSign').forEach(el => el.remove());
   seatOrder.forEach((seat, i) => {
@@ -876,7 +883,7 @@ function render() {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
     const isAllIn = h.stacks[seat] === 0 && !folded;
-    if (isAllIn && !allInAnimated[seat]) {
+    if ((isAllIn || (anyAllInThisHand && !folded)) && !allInAnimated[seat]) {
       allInAnimated[seat] = true;
       const pile = document.createElement('div');
       pile.className = 'chipPile';
