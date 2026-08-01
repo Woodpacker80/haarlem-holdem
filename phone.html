@@ -21,9 +21,9 @@
     padding:5px 9px;margin:2px;font-weight:700;font-size:16px;min-width:32px;text-align:center;}
   .card.red{color:#BE1622;}
   #squeezeContainer{position:relative;width:260px;height:220px;margin:0 auto;
-    border-radius:10px;overflow:hidden;background:#080c18;touch-action:none;
+    border-radius:10px;overflow:hidden;background:#182e27;touch-action:none;
     border:1px solid rgba(201,168,76,0.35);}
-  #squeezeContainer canvas{display:block;}
+  #squeezeContainer canvas{display:block;touch-action:none;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -107,8 +107,8 @@ let unsubscribeHoleCards = null;
 // of a fixed demo Ace/2.
 const squeezeContainer = document.getElementById('squeezeContainer');
 const sqScene = new THREE.Scene();
-sqScene.background = new THREE.Color(0x080c18);
-sqScene.fog = new THREE.Fog(0x080c18, 4, 9);
+sqScene.background = new THREE.Color(0x182e27);
+sqScene.fog = new THREE.Fog(0x12211c, 4, 9);
 const sqCamera = new THREE.PerspectiveCamera(60, 1, 0.05, 50);
 const sqCalibratedPos = new THREE.Vector3(-1.87, 0.69, 3.67);
 const sqCalibratedLookAt = new THREE.Vector3(-0.32, -0.15, -0.52);
@@ -160,7 +160,7 @@ sqRim.position.set(0, 1.2, -3.0);
 sqScene.add(sqRim);
 const sqTable = new THREE.Mesh(
   new THREE.PlaneGeometry(24, 24),
-  new THREE.MeshStandardMaterial({ color: 0x0d1626, roughness: 0.95 })
+  new THREE.MeshStandardMaterial({ color: 0x12211c, roughness: 0.95 })
 );
 sqTable.rotation.x = -Math.PI / 2;
 sqScene.add(sqTable);
@@ -311,12 +311,14 @@ function sqApplyCurl(peel) {
 
 let sqPeel = 0, sqTargetPeel = 0, sqDragging = false, sqDragStartY = 0, sqDragStartPeel = 0;
 sqRenderer.domElement.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   sqDragging = true;
   sqDragStartY = e.clientY; sqDragStartPeel = sqTargetPeel;
   sqRenderer.domElement.setPointerCapture(e.pointerId);
 });
 sqRenderer.domElement.addEventListener('pointermove', (e) => {
   if (!sqDragging) return;
+  e.preventDefault();
   const dy = sqDragStartY - e.clientY;
   sqTargetPeel = Math.min(1, Math.max(0, sqDragStartPeel + dy / 160));
 });
