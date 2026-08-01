@@ -28,9 +28,11 @@
     background:#c9a84c;
     pointer-events:none;z-index:5;}
   #squeezeStackReadout{position:absolute;left:0;right:0;top:0;height:32%;
-    display:flex;align-items:center;justify-content:center;
-    color:#c9a84c;font-size:19px;letter-spacing:.03em;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    color:#c9a84c;letter-spacing:.03em;font-weight:600;
     pointer-events:none;z-index:5;text-align:center;padding:0 10px;}
+  #squeezeStackReadout .sr-stack{font-size:18px;}
+  #squeezeStackReadout .sr-tocall{font-size:14px;color:#a68a4a;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -489,8 +491,9 @@ function render(state) {
   const myStack = state.stacks[mySeat];
   const myBet = state.bets[mySeat] || 0;
   const myToCall = Math.max(0, (state.currentBet || 0) - myBet);
-  document.getElementById('squeezeStackReadout').textContent =
-    `Your Stack ${myStack}` + (myToCall > 0 ? ` · To call ${myToCall}` : '');
+  document.getElementById('squeezeStackReadout').innerHTML =
+    `<div class="sr-stack">Your Stack ${myStack}</div>` +
+    (myToCall > 0 ? `<div class="sr-tocall">To call ${myToCall}</div>` : '');
   document.getElementById('info').textContent = state.result
     ? 'Hand complete — waiting for the next hand'
     : '';
