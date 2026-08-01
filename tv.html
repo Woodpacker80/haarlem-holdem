@@ -912,6 +912,15 @@ function render() {
     // isAllIn itself is unaffected — the shover's own chips should still
     // move the moment THEY shove, regardless of whose turn it is next.
     const stillWaitingOnThisSeat = h.bettingRound && h.bettingRound.actingSeat === seat;
+    // TEMPORARY DIAGNOSTIC — remove once the premature-animation bug is
+    // actually understood. Logs the exact values this guard sees, for every
+    // non-folded seat, on every render. Open the browser console during a
+    // test all-in and look at what's logged right when the bug happens —
+    // specifically whether bettingRound is missing/null, or actingSeat is
+    // something unexpected, at the render where the animation wrongly fires.
+    if (!folded) {
+      console.log(`[allin-debug] seat=${seat} isAllIn=${isAllIn} anyAllInThisHand=${anyAllInThisHand} bettingRoundExists=${!!h.bettingRound} actingSeat=${h.bettingRound ? h.bettingRound.actingSeat : 'n/a'} stillWaitingOnThisSeat=${stillWaitingOnThisSeat} allInAnimated=${allInAnimated[seat]}`);
+    }
     if ((isAllIn || (anyAllInThisHand && !folded && !stillWaitingOnThisSeat)) && !allInAnimated[seat]) {
       allInAnimated[seat] = true;
       const pile = document.createElement('div');
