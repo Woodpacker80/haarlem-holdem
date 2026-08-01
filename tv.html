@@ -312,6 +312,7 @@ let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames —
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
 let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
 let payoutAnimated = {}; // which seats have already had their payout chip-shove-outward animation fire THIS hand
+let allInPilesCleared = false; // whether this hand's leftover all-in piles have been swept away yet, ahead of payout piles appearing
 // Set once heads-up (or any last-one-standing) elimination makes dealing
 // another hand impossible. render() checks this on every pass — unlike a
 // one-off message written directly into resultArea, which the very next
@@ -538,6 +539,7 @@ function startNewHand() {
   clearVoluntaryTimer();
   allInAnimated = {};
   payoutAnimated = {};
+  allInPilesCleared = false;
   document.querySelectorAll('.chipPile').forEach(el => el.remove());
   // Ranking is frozen for the whole hand, computed ONCE here from standings
   // as they were entering this hand (before blinds) — recomputing it live
@@ -897,6 +899,16 @@ function render() {
   // animation at all, since isAllIn alone only ever matched the all-in
   // player themselves.
   const anyAllInThisHand = seatOrder.some(s => h.stacks[s] === 0 && !h.foldedSeats.includes(s));
+  // Clear leftover all-in piles (still sitting at each seat's own halfway
+  // point from earlier in the hand) the moment the result is genuinely
+  // visible, before any payout pile gets created below. Without this, an
+  // all-in hand with a single winner would still show the shover's AND the
+  // caller's old piles on screen alongside the new payout pile — three
+  // piles at once, which looks exactly like a split even when it isn't one.
+  if (h.result && revealCaughtUp && !allInPilesCleared) {
+    allInPilesCleared = true;
+    document.querySelectorAll('.chipPile').forEach(el => el.remove());
+  }
   const ovalTable = document.getElementById('ovalTable');
   ovalTable.querySelectorAll('.seatSign').forEach(el => el.remove());
   seatOrder.forEach((seat, i) => {
