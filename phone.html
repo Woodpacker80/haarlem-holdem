@@ -130,7 +130,8 @@ for (const cx of [SQ_FRAME_MIN.x, SQ_FRAME_MAX.x]) {
     }
   }
 }
-const SQ_FRAME_SAFETY = 1.04;
+const SQ_FRAME_SAFETY = 1.18; // was 1.04 — a bit more margin so the cards read as "a nudge smaller"
+const SQ_VERTICAL_NUDGE = 0.12; // world units along camera-up; shifts the framed content upward on screen
 function updateSqCameraFraming() {
   const w = squeezeContainer.clientWidth, h = squeezeContainer.clientHeight;
   const aspect = w / h;
@@ -139,8 +140,9 @@ function updateSqCameraFraming() {
   const hFovHalf = Math.atan(Math.tan(vFovHalf) * aspect);
   const distance = Math.max(sqHalfH / Math.tan(vFovHalf), sqHalfW / Math.tan(hFovHalf)) * SQ_FRAME_SAFETY;
   sqCamera.position.copy(sqInitialTarget).add(sqViewDir.clone().multiplyScalar(distance));
+  sqCamera.position.addScaledVector(sqCamUp, -SQ_VERTICAL_NUDGE); // pan camera down => content appears higher
   sqCamera.updateProjectionMatrix();
-  sqCamera.lookAt(sqInitialTarget);
+  sqCamera.lookAt(sqInitialTarget.clone().addScaledVector(sqCamUp, -SQ_VERTICAL_NUDGE));
 }
 const sqRenderer = new THREE.WebGLRenderer({ antialias: true });
 sqRenderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -412,6 +414,9 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   currentName = name;
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
+  resizeSqRenderer(); // #squeezeContainer was 0×0 while gameArea was hidden, so the very
+                       // first framing at page load was garbage (0/0 aspect) — now that
+                       // it has real dimensions, recompute for real.
   document.getElementById('seatBadge').textContent = 'joining…';
 
   if (!myUid) myUid = await ensureAuth(); // in case the gate was submitted before auth resolved
