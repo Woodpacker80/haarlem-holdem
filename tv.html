@@ -624,8 +624,22 @@ function ensureRevealTimer() {
   if (revealTimerSeat === targetSeat) return; // already running for this exact turn
   clearRevealTimer();
   revealTimerSeat = targetSeat;
-  revealWarnHandle = setTimeout(() => SFX.decisionWarning(), 3000); // 3 seconds before it auto-mucks
-  revealTimerHandle = setTimeout(() => applyReveal(targetSeat, 'muck'), 6000);
+  revealWarnHandle = setTimeout(() => SFX.decisionWarning(), 3000); // warning sound partway through — doesn't change the deadline itself
+  // Smart default on timeout: mucking is a genuine forfeit (only shown hands
+  // count toward the payout), so defaulting to muck for EVERY timeout risks
+  // an inattentive player accidentally forfeiting a pot they actually won,
+  // just by not clicking anything in time. ranking[0] is the actual best
+  // hand(s) this showdown (ties included, split pots and all) — true
+  // strength, independent of reveal order or who's shown what so far. If
+  // this seat is in that top group, showing is what a player who noticed
+  // the timer would obviously choose, so default to that instead of muck.
+  // If they're not actually the best hand, muck is harmless (they'd lose
+  // either way) and keeps cards private by default, same as always.
+  revealTimerHandle = setTimeout(() => {
+    const ranking = pending.ranking;
+    const wouldWin = ranking && ranking[0] && ranking[0].some(entry => entry.seat === targetSeat);
+    applyReveal(targetSeat, wouldWin ? 'show' : 'muck');
+  }, 6000);
 }
 
 let voluntaryTimerHandle = null;
