@@ -20,9 +20,6 @@
     border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
   button:hover{background:rgba(201,168,76,0.15);}
   button:disabled{cursor:default;border-color:#3a3f52 !important;color:#3a3f52 !important;}
-  #forceMuckBtn{border:1px solid rgba(201,168,76,0.4);color:#a68a4a;padding:4px 10px;
-    font-size:11px;letter-spacing:.03em;border-radius:6px;}
-  #forceMuckBtn:hover{background:rgba(201,168,76,0.1);}
   #startBtn{width:140px;height:140px;border:2px solid #c9a84c;color:#c9a84c;
     border-radius:8px;font-weight:600;box-sizing:border-box;transition:background .2s;}
   #startBtn:not(:disabled):hover{background:rgba(201,168,76,0.1);}
@@ -1066,9 +1063,7 @@ function render() {
     ensureRevealTimer();
     const pending = h.pendingReveal;
     const seat = pending.order[pending.currentIndex];
-    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on ${seatLabel(seat)} to show or muck\u2026</div>
-      <div style="text-align:center;margin-top:8px;"><button id="forceMuckBtn">Force Muck (${seatLabel(seat)})</button></div>`;
-    document.getElementById('forceMuckBtn').addEventListener('click', () => applyReveal(seat, 'muck'));
+    resultArea.innerHTML = `<div style="color:#c9a84c;">Waiting on ${seatLabel(seat)} to show or muck\u2026</div>`;
     hostControls.innerHTML = '';
   } else if (h.pendingVoluntaryShow && !h.pendingVoluntaryShow.decided && revealCaughtUp) {
     ensureVoluntaryTimer();
