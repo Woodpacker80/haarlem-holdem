@@ -623,12 +623,9 @@ function applyVoluntaryReveal(seat, decision) {
 // each phone, so it can't be affected by a phone lagging or backgrounding.
 let revealTimerHandle = null;
 let revealTimerSeat = null;
-let revealWarnHandle = null;
 function clearRevealTimer() {
   if (revealTimerHandle) clearTimeout(revealTimerHandle);
-  if (revealWarnHandle) clearTimeout(revealWarnHandle);
   revealTimerHandle = null;
-  revealWarnHandle = null;
   revealTimerSeat = null;
 }
 function ensureRevealTimer() {
@@ -638,7 +635,12 @@ function ensureRevealTimer() {
   if (revealTimerSeat === targetSeat) return; // already running for this exact turn
   clearRevealTimer();
   revealTimerSeat = targetSeat;
-  revealWarnHandle = setTimeout(() => SFX.decisionWarning(), 3000); // warning sound partway through — doesn't change the deadline itself
+  // Fires immediately rather than partway through: now that the timer
+  // itself is only 3s (down from 6s — the smart default below makes a long
+  // "safety margin" unnecessary), splitting it into a silent half followed
+  // by a warning would leave almost no reaction time after the warning.
+  // Firing right away gives the full 3s of "the clock is running" instead.
+  SFX.decisionWarning();
   // Smart default on timeout: mucking is a genuine forfeit (only shown hands
   // count toward the payout), so defaulting to muck for EVERY timeout risks
   // an inattentive player accidentally forfeiting a pot they actually won,
@@ -653,7 +655,7 @@ function ensureRevealTimer() {
     const ranking = pending.ranking;
     const wouldWin = ranking && ranking[0] && ranking[0].some(entry => entry.seat === targetSeat);
     applyReveal(targetSeat, wouldWin ? 'show' : 'muck');
-  }, 6000);
+  }, 3000);
 }
 
 let voluntaryTimerHandle = null;
