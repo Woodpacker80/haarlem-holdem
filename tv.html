@@ -981,7 +981,13 @@ function render() {
       payoutPile.style.top = '50%';
       payoutPile.innerHTML = buildAllInChipsSVG();
       ovalTable.appendChild(payoutPile);
-      const payoutHalfwayX = (signX + 50) / 2, payoutHalfwayY = (signY + 50) / 2;
+      // Rest mostly toward the winner's own seat (75% of the way there)
+      // rather than stopping halfway — the halfway point sits right where
+      // the "Won by..." result text lives in the middle of the table,
+      // so the pile visually covered that text. Ending up close to the
+      // winner's own stack also just makes more sense thematically: the
+      // pot is moving TO them, not stopping partway.
+      const payoutHalfwayX = signX * 0.75 + 50 * 0.25, payoutHalfwayY = signY * 0.75 + 50 * 0.25;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           payoutPile.style.left = payoutHalfwayX + '%';
