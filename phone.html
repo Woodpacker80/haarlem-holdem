@@ -43,6 +43,10 @@
   button.fold{border-color:#BE1622;color:#BE1622;}
   button.fold:hover{background:rgba(190,22,34,0.15);}
   #others{font-size:12px;text-align:center;line-height:1.7;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  #preActionArea label{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
+    border-radius:14px;border:1px solid rgba(201,168,76,0.35);color:#c9a84c;
+    font-size:13px;cursor:pointer;user-select:none;}
+  #preActionArea input[type="checkbox"]{width:16px;height:16px;accent-color:#c9a84c;cursor:pointer;}
   .otherSeat{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:14px;
     border:1px solid rgba(201,168,76,0.35);color:#c9a84c;background:rgba(201,168,76,0.08);}
   .otherSeat.folded{text-decoration:line-through;color:#3a3f52;border-color:rgba(58,63,82,0.35);background:transparent;}
@@ -78,6 +82,7 @@
   <div id="squeezeContainer"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">waiting for the deal…</div>
 </div>
+<div id="preActionArea" style="text-align:center;"></div>
 <div id="actions"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
@@ -86,7 +91,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -101,6 +106,7 @@ let wasDisconnected = false;
 // still gets asked for a name every time, as intended.
 let currentName = null;
 let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
+let preActions = {}; // seat -> 'checkFold' | null, kept live so the checkbox reflects the host clearing it (new street, or consumed)
 
 let unsubscribeHoleCards = null;
 
@@ -461,6 +467,11 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   });
 
   watchPlayerNames((names) => { playerNames = names; });
+  watchPreActions((armed) => {
+    preActions = armed;
+    const box = document.getElementById('checkFoldBox');
+    if (box) box.checked = !!armed[mySeat]; // keep in sync if the host cleared it (new street, or just consumed)
+  });
 
   watchPublicState((state) => {
     latestPublicState = state;
@@ -524,6 +535,25 @@ function render(state) {
   const actionsEl = document.getElementById('actions');
   const myRevealTurn = state.pendingReveal && state.pendingReveal.order[state.pendingReveal.currentIndex] === mySeat;
   const myVoluntaryTurn = state.pendingVoluntaryShow && state.pendingVoluntaryShow.seat === mySeat && !state.pendingVoluntaryShow.decided;
+
+  // Check/Fold pre-selection: only offered while genuinely waiting on a
+  // betting decision that isn't yours yet — not during a reveal decision,
+  // not once the hand's over, not if you've already folded out of it. The
+  // host is what actually enforces re-arming per street (see game-sync.js);
+  // this only decides whether the checkbox is worth showing right now.
+  const iAmFolded = state.foldedSeats.includes(mySeat);
+  const showPreAction = !state.result && !myRevealTurn && !myVoluntaryTurn && !iAmFolded
+    && state.actingSeat !== null && state.actingSeat !== mySeat;
+  const preActionArea = document.getElementById('preActionArea');
+  if (showPreAction) {
+    const armed = !!preActions[mySeat];
+    preActionArea.innerHTML = `<label><input type="checkbox" id="checkFoldBox" ${armed ? 'checked' : ''}> Check/Fold</label>`;
+    document.getElementById('checkFoldBox').addEventListener('change', (e) => {
+      setPreAction(mySeat, e.target.checked ? 'checkFold' : null);
+    });
+  } else {
+    preActionArea.innerHTML = '';
+  }
 
   if (myRevealTurn || myVoluntaryTurn) {
     // The TV is the real authority on the 5-second auto-muck timer — this

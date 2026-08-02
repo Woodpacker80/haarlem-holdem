@@ -170,6 +170,22 @@ export function watchPlayerNames(cb) {
   onValue(roomRef('game/playerNames'), (snap) => cb(snap.val() || {}));
 }
 
+// Check/Fold pre-selection: a phone can arm this while waiting for its
+// turn — the host resolves it automatically (still with a brief "acting"
+// beat, not an instant skip) the moment the turn actually arrives. Written
+// as `armed`, not a request queued for the host to interpret, since this
+// is purely a phone-side preference the host reads directly. Re-arms per
+// street by design: the host clears every seat's entry whenever a new
+// street begins, or the instant a given seat's own pre-action resolves —
+// never carries an old decision forward into board cards the player
+// hasn't seen yet.
+export function setPreAction(seat, armed) {
+  return set(roomRef(`game/preActions/${seat}`), armed);
+}
+export function watchPreActions(cb) {
+  onValue(roomRef('game/preActions'), (snap) => cb(snap.val() || {}));
+}
+
 // Public game state: everything except hole cards (board, street, whose
 // turn, stacks, bets, folded/all-in status, dealer seat, result). Every
 // screen reads this the same way.
