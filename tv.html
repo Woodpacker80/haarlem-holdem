@@ -313,6 +313,16 @@ let frozenRankOrder = []; // seats sorted by standings — updates the instant a
 let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
 let payoutAnimated = {}; // which seats have already had their payout chip-shove-outward animation fire THIS hand
 let allInPilesCleared = false; // whether this hand's leftover all-in piles have been swept away yet, ahead of payout piles appearing
+// Reveal pacing: a purely display-side beat inserted between each step of
+// the showdown reveal sequence (and before the final "Won by..." result),
+// so a technically-correct one-at-a-time reveal doesn't read as everything
+// happening at once — especially in heads-up, where there are only ever
+// 1-2 steps total and they can otherwise cascade within the same instant.
+// Does NOT touch full-hand.js's actual reveal-order logic, which is already
+// correct — this only delays how soon the DISPLAY catches up to it.
+let revealPaceGateOpen = true; // whether the current prompt/result is allowed to show yet
+let revealPaceGateTimer = null;
+let revealPaceLastKey = null; // last reveal-sequence position we've already reacted to
 // Set once heads-up (or any last-one-standing) elimination makes dealing
 // another hand impossible. render() checks this on every pass — unlike a
 // one-off message written directly into resultArea, which the very next
@@ -540,6 +550,10 @@ function startNewHand() {
   allInAnimated = {};
   payoutAnimated = {};
   allInPilesCleared = false;
+  revealPaceGateOpen = true;
+  if (revealPaceGateTimer) clearTimeout(revealPaceGateTimer);
+  revealPaceGateTimer = null;
+  revealPaceLastKey = null;
   document.querySelectorAll('.chipPile').forEach(el => el.remove());
   // Ranking is frozen for the whole hand, computed ONCE here from standings
   // as they were entering this hand (before blinds) — recomputing it live
@@ -912,6 +926,28 @@ function render() {
   // common case when they have the bigger stack) previously got no chip
   // animation at all, since isAllIn alone only ever matched the all-in
   // player themselves.
+  // Detect whenever the reveal sequence has genuinely advanced — either to
+  // the next seat's decision, or (the key extra piece) into the final
+  // result once everyone's decided. Each advance gets its own sound (for
+  // whoever's decision just landed) and then holds the NEXT thing back —
+  // the next prompt, the final "Won by...", or the payout piles below —
+  // for a deliberate beat, rather than showing it all in the same instant.
+  // Placed here, before the per-seat loop, so the payout-pile creation code
+  // further down sees this render's up-to-date gate value, not last
+  // render's stale one.
+  const paceKey = h.pendingReveal ? `reveal:${h.pendingReveal.currentIndex}` : (h.result ? 'result' : null);
+  if (paceKey && paceKey !== revealPaceLastKey && revealCaughtUp) {
+    if (h.pendingReveal) {
+      const justSeat = h.pendingReveal.order[h.pendingReveal.currentIndex - 1];
+      const justDecision = justSeat !== undefined ? h.pendingReveal.decisions[justSeat] : null;
+      if (justDecision === 'shown') SFX.cardFlip();
+      else if (justDecision === 'mucked') SFX.fold();
+    }
+    revealPaceLastKey = paceKey;
+    revealPaceGateOpen = false;
+    if (revealPaceGateTimer) clearTimeout(revealPaceGateTimer);
+    revealPaceGateTimer = setTimeout(() => { revealPaceGateOpen = true; render(); }, 1500);
+  }
   const anyAllInThisHand = seatOrder.some(s => h.stacks[s] === 0 && !h.foldedSeats.includes(s));
   // Clear leftover all-in piles (still sitting at each seat's own halfway
   // point from earlier in the hand) the moment the result is genuinely
@@ -972,7 +1008,7 @@ function render() {
     // the result is genuinely visible (same gating the ranking-sync above
     // uses), and on an actual positive payout so a folded/losing seat with
     // payouts[seat] === 0 never gets a pile.
-    if (h.result && revealCaughtUp && (h.result.payouts[seat] || 0) > 0 && !payoutAnimated[seat]) {
+    if (h.result && revealCaughtUp && revealPaceGateOpen && (h.result.payouts[seat] || 0) > 0 && !payoutAnimated[seat]) {
       payoutAnimated[seat] = true;
       console.log(`[chip-debug] PAYOUT pile CREATED for seat=${seat} (payout=${h.result.payouts[seat]}) — piles on screen right now: ${document.querySelectorAll('.chipPile').length}`);
       const payoutPile = document.createElement('div');
@@ -1021,7 +1057,7 @@ function render() {
 
   const resultArea = document.getElementById('resultArea');
   const hostControls = document.getElementById('hostControls');
-  if (h.pendingReveal && revealCaughtUp) {
+  if (h.pendingReveal && revealCaughtUp && revealPaceGateOpen) {
     ensureRevealTimer();
     const pending = h.pendingReveal;
     const seat = pending.order[pending.currentIndex];
@@ -1033,7 +1069,7 @@ function render() {
     ensureVoluntaryTimer();
     resultArea.innerHTML = `<div style="color:#7d8299;">${seatLabel(h.pendingVoluntaryShow.seat)} can choose to reveal their hand\u2026</div>`;
     hostControls.innerHTML = '';
-  } else if (h.result && revealCaughtUp) {
+  } else if (h.result && revealCaughtUp && revealPaceGateOpen) {
     const potsHtml = h.result.pots.map((p, i) => {
       let wonByHtml;
       try {
