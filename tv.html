@@ -856,8 +856,16 @@ function seatCardsHtml(h, seat) {
     // seat's real hand is exactly what a broadcast would already be
     // showing, board runout still in progress or not.
     const folded = h.foldedSeats.includes(seat);
+    // A folded seat should show the proper mucked card-back the INSTANT
+    // they fold, not just retroactively once the whole hand ends. Without
+    // this, a fold looked visually identical to "hasn't acted yet" for the
+    // entire rest of the hand (which is most of it, since play continues
+    // after a fold) — only flipping to the correct look right at the very
+    // end, for the brief moment before the next hand clears it again. That
+    // timing gap is what made it look random rather than consistent.
+    if (folded) return muckedCardsHtml();
     const anyAllIn = h.activeSeats.some(s => h.stacks[s] === 0 && !h.foldedSeats.includes(s));
-    if (!folded && anyAllIn) return h.holeCards[seat].map(renderCard).join('');
+    if (anyAllIn) return h.holeCards[seat].map(renderCard).join('');
     return '\uD83C\uDCA0 \uD83C\uDCA0';
   }
   if (h.result) {
