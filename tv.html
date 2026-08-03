@@ -1117,7 +1117,19 @@ function render() {
     // cards sat face-down the entire time and only appeared right at the
     // river, instead of right when the all-in itself happened.
     const showCardsEarly = anyAllInThisHand && !folded && !stillWaitingOnThisSeat;
-    const cardsHtml = (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
+    // A folded seat's mucked card-back isn't spoiler-sensitive the way an
+    // active seat's real hole cards are — it's just a static "out" graphic,
+    // not new information the reveal-animation gate below needs to protect
+    // against. Without this, the SAME gate that (correctly) holds back an
+    // active seat's cards during a brief board-reveal animation window was
+    // ALSO holding back a folded seat's mucked card-back during that same
+    // window — which is what actually made it look inconsistent: it showed
+    // fine outside that window, and fell back to the generic placeholder
+    // during it, regardless of the earlier fix inside seatCardsHtml() (that
+    // fix is real and still needed, but this outer gate was bypassing it
+    // entirely at certain moments).
+    const cardsHtml = folded ? seatCardsHtml(h, seat)
+      : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
 
     const sign = document.createElement('div');
     sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
