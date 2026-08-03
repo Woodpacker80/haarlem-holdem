@@ -870,8 +870,13 @@ function seatCardsHtml(h, seat) {
   }
   if (h.result) {
     if (h.result.uncontested) {
+      // This branch is its own separate code path from the mid-hand fold
+      // check and the turn-based-reveal check above — neither of those
+      // fixes touched it, which is exactly why a preflop fold into an
+      // uncontested win still fell back to the generic placeholder instead
+      // of the proper mucked card-back.
       return (h.result.voluntaryReveal && h.result.voluntaryReveal.seat === seat)
-        ? h.holeCards[seat].map(renderCard).join('') : '\uD83C\uDCA0 \uD83C\uDCA0';
+        ? h.holeCards[seat].map(renderCard).join('') : muckedCardsHtml();
     }
     if (h.result.revealDecisions) { // went through the turn-based reveal
       const decision = h.result.revealDecisions[seat];
