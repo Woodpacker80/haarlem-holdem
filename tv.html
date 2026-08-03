@@ -1135,16 +1135,6 @@ function render() {
     // entirely at certain moments).
     const cardsHtml = folded ? seatCardsHtml(h, seat)
       : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
-    // TEMPORARY DIAGNOSTIC — two fixes in a row for the mucked-card-back
-    // issue didn't hold up live despite looking correct on paper. Logging
-    // the actual inputs for every folded seat, and for every seat with a
-    // muck decision either mid-reveal or in the final result, so the next
-    // fix is based on real data instead of a third guess.
-    const pendingDecision = h.pendingReveal ? h.pendingReveal.decisions[seat] : undefined;
-    const resultDecision = h.result && h.result.revealDecisions ? h.result.revealDecisions[seat] : undefined;
-    if (folded || pendingDecision === 'mucked' || (resultDecision !== undefined && resultDecision !== 'shown')) {
-      console.log(`[muck-debug] seat=${seat} folded=${folded} revealCaughtUp=${revealCaughtUp} showCardsEarly=${showCardsEarly} hasPendingReveal=${!!h.pendingReveal} pendingDecision=${pendingDecision} hasResult=${!!h.result} resultDecision=${resultDecision} cardsHtmlLength=${cardsHtml.length} cardsHtmlSample=${cardsHtml.slice(0, 60)}`);
-    }
 
     const sign = document.createElement('div');
     sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
