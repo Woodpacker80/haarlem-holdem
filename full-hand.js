@@ -19,17 +19,29 @@ const STREETS = ['preflop', 'flop', 'turn', 'river'];
 
 // Starts a brand-new hand. `stacks` and `dealerSeat` persist across hands
 // (the caller carries these forward); everything else here is fresh.
-export function startHand({ numSeats, activeSeats, stacks, dealerSeat, smallBlindAmount, bigBlindAmount }) {
+export function startHand({ numSeats, activeSeats, stacks, dealerSeat, smallBlindAmount, bigBlindAmount, anteAmount = 0 }) {
   let deck = shuffle(createDeck());
   const { smallBlindSeat, bigBlindSeat } = assignBlinds(dealerSeat, numSeats, activeSeats);
 
   const bets = {};
   const workingStacks = { ...stacks };
+  const anteContributions = {}; // tracked separately from `bets` — ante is dead money already in
+  // the pot before betting even starts, not something anyone needs to "call" the way a blind is.
   const postBlind = (seat, amount) => {
     const actual = Math.min(amount, workingStacks[seat]);
     bets[seat] = actual;
     workingStacks[seat] -= actual;
   };
+  // Traditional format: every active seat antes individually, before blinds
+  // are posted — capped at whatever's left of a short stack, same as a
+  // blind would be.
+  if (anteAmount > 0) {
+    activeSeats.forEach(seat => {
+      const actual = Math.min(anteAmount, workingStacks[seat]);
+      anteContributions[seat] = actual;
+      workingStacks[seat] -= actual;
+    });
+  }
   postBlind(smallBlindSeat, smallBlindAmount);
   postBlind(bigBlindSeat, bigBlindAmount);
 
@@ -40,18 +52,27 @@ export function startHand({ numSeats, activeSeats, stacks, dealerSeat, smallBlin
 
   const firstToAct = firstToActPreflop(dealerSeat, numSeats, activeSeats);
 
+  // totalBets accumulates across the WHOLE hand for pot calculation at the
+  // end — antes go in here too (they're real chips in the pot, same as any
+  // bet), just not in `bets` (which only tracks the live betting round).
+  const totalBets = {};
+  activeSeats.forEach(seat => {
+    totalBets[seat] = (bets[seat] || 0) + (anteContributions[seat] || 0);
+  });
+
   return {
     numSeats,
     activeSeats: activeSeats.slice(),
     dealerSeat,
     smallBlindAmount,
     bigBlindAmount,
+    anteAmount,
     deck,
     holeCards,
     board: [],
     street: 'preflop',
     foldedSeats: [],
-    totalBets: { ...bets }, // accumulates across ALL streets, for pot calculation at the end
+    totalBets,
     stacks: workingStacks,
     lastAggressorThisStreet: null, // who last bet/raise this street — decides who shows first at showdown
     bettingRound: initBettingRound({
