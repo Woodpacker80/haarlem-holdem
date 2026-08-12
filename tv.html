@@ -88,6 +88,9 @@
 </head>
 <body>
 <button id="quitGameBtn" style="position:fixed;top:14px;left:28px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
+<div id="levelUpBadge" style="display:none;position:fixed;top:14px;z-index:20;color:#c9a84c;
+  font-weight:600;font-size:12px;background:rgba(0,0,0,0.28);padding:6px 14px;
+  border-radius:8px;border:1px solid #c9a84c;white-space:nowrap;"></div>
 <div id="conn" style="position:fixed;top:14px;right:76px;z-index:20;font-size:12px;letter-spacing:.05em;text-transform:uppercase;">connecting…</div>
 <button id="helpBtn" style="position:fixed;top:45%;left:28px;z-index:20;padding:6px 14px;font-size:12px;">How to Play</button>
 <button id="clearBansBtn" style="position:fixed;top:calc(45% + 36px);left:28px;z-index:20;padding:6px 14px;font-size:12px;">Clear All Bans</button>
@@ -321,6 +324,8 @@ let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, b
 // moment startHand() was called, so blinds only ever actually change at the
 // start of the NEXT hand, never mid-hand.
 let blindLevelTimer = null;
+let nextLevelUpAt = null; // timestamp (ms) the next level-up will fire — drives the live countdown badge
+let levelUpCountdownInterval = null; // ticks the countdown display once a second
 const BLIND_LEVEL_MINUTES = 12.5;
 // Traditional (not "big blind ante") format: every active seat antes
 // individually, every hand — reconsidered away from the modern WSOP "big
@@ -345,22 +350,47 @@ function updateBlindsBadge() {
   badge.textContent = `Blinds: ${gameConfig.smallBlindAmount}/${gameConfig.bigBlindAmount}${anteText}`;
   badge.style.display = 'block';
 }
+// Separate from updateBlindsBadge (which just shows CURRENT values) — this
+// one previews what the NEXT level will be and counts down to it live,
+// sitting next to Quit Game per Mark's placement.
+function updateLevelUpBadge() {
+  const badge = document.getElementById('levelUpBadge');
+  if (!badge || !gameConfig || nextLevelUpAt === null) { if (badge) badge.style.display = 'none'; return; }
+  const remainingMs = Math.max(0, nextLevelUpAt - Date.now());
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+  const nextSb = roundToNiceChipValue(gameConfig.smallBlindAmount * 1.5);
+  const nextBb = roundToNiceChipValue(gameConfig.bigBlindAmount * 1.5);
+  badge.textContent = `Blinds go up to ${nextSb}/${nextBb} in ${mm}:${String(ss).padStart(2, '0')}`;
+  const quitBtn = document.getElementById('quitGameBtn');
+  if (quitBtn) badge.style.left = (quitBtn.getBoundingClientRect().right + 12) + 'px';
+  badge.style.display = 'block';
+}
 function scheduleBlindLevelUp() {
   if (blindLevelTimer) clearTimeout(blindLevelTimer);
+  nextLevelUpAt = Date.now() + BLIND_LEVEL_MINUTES * 60 * 1000;
+  updateLevelUpBadge();
+  if (!levelUpCountdownInterval) levelUpCountdownInterval = setInterval(updateLevelUpBadge, 1000);
   blindLevelTimer = setTimeout(() => {
     if (!gameConfig) return; // game ended before this level-up ever fired
     gameConfig.smallBlindAmount = roundToNiceChipValue(gameConfig.smallBlindAmount * 1.5);
     gameConfig.bigBlindAmount = roundToNiceChipValue(gameConfig.bigBlindAmount * 1.5);
     gameConfig.anteAmount = gameConfig.smallBlindAmount;
     updateBlindsBadge();
-    scheduleBlindLevelUp(); // and schedule the level after this one
+    scheduleBlindLevelUp(); // and schedule the level after this one (also resets nextLevelUpAt)
   }, BLIND_LEVEL_MINUTES * 60 * 1000);
 }
 function clearBlindLevelTimer() {
   if (blindLevelTimer) clearTimeout(blindLevelTimer);
   blindLevelTimer = null;
+  nextLevelUpAt = null;
+  if (levelUpCountdownInterval) clearInterval(levelUpCountdownInterval);
+  levelUpCountdownInterval = null;
   const badge = document.getElementById('blindsBadge');
   if (badge) badge.style.display = 'none';
+  const levelBadge = document.getElementById('levelUpBadge');
+  if (levelBadge) levelBadge.style.display = 'none';
 }
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
