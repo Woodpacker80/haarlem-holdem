@@ -425,6 +425,47 @@ let allInPilesCleared = false; // whether this hand's leftover all-in piles have
 let revealPaceGateOpen = true; // whether the current prompt/result is allowed to show yet
 let revealPaceGateTimer = null;
 let revealPaceLastKey = null; // last reveal-sequence position we've already reacted to
+// Deal animation: the real hand is fully computed instantly in startHand()
+// exactly as before — this never touches that. It's purely a display-side
+// delay, same pattern as the reveal pacing above: withhold showing the
+// (already-decided) result until a brief animation finishes, every single
+// hand, not just sometimes. Concretely: writeHoleCards() (the only thing
+// that actually reveals real card values to phones) is held back until
+// this animation completes.
+let dealingInProgress = false;
+let dealtCardCount = {}; // seat -> 0/1/2, meaningful only while dealingInProgress
+// Real dealing convention: one card to each player going all the way
+// around the table starting immediately left of the dealer button, THEN a
+// second full lap for everyone's second card — never both cards to one
+// seat before moving on.
+function dealOrderFromDealer(dealerSeat, numSeats, activeSeats) {
+  const order = [];
+  let seat = dealerSeat;
+  for (let i = 0; i < activeSeats.length; i++) {
+    seat = (seat + 1) % numSeats;
+    while (!activeSeats.includes(seat)) seat = (seat + 1) % numSeats;
+    order.push(seat);
+  }
+  return order;
+}
+function playDealingAnimation(onComplete) {
+  dealingInProgress = true;
+  const order = dealOrderFromDealer(gameConfig.dealerSeat, handState.numSeats, gameConfig.activeSeats);
+  gameConfig.activeSeats.forEach(s => { dealtCardCount[s] = 0; });
+  const DEAL_STEP_MS = 200; // brisker than the ~1650ms/card board reveal — 12 deals at a full 6-max table would drag badly at that pace
+  let step = 0;
+  const totalSteps = order.length * 2; // two laps: everyone's first card, then everyone's second
+  function dealNextCard() {
+    if (step >= totalSteps) { dealingInProgress = false; onComplete(); return; }
+    const seat = order[step % order.length];
+    dealtCardCount[seat] = Math.min(2, (dealtCardCount[seat] || 0) + 1);
+    step++;
+    SFX.cardFlip();
+    render();
+    setTimeout(dealNextCard, DEAL_STEP_MS);
+  }
+  dealNextCard();
+}
 // Check/Fold pre-selection (see game-sync.js for the full design rationale).
 // preActions mirrors Firebase live; the other two track the auto-resolve
 // in progress so it fires exactly once per armed turn, with the same
@@ -694,8 +735,12 @@ function startNewHand() {
     bigBlindAmount: gameConfig.bigBlindAmount,
     anteAmount: gameConfig.anteAmount,
   });
-  writeHoleCards(handState.holeCards);
+  writeHoleCards(null); // clear any previous hand's cards immediately — phones must not see last hand's data during this one's animation
   publish();
+  playDealingAnimation(() => {
+    writeHoleCards(handState.holeCards);
+    publish();
+  });
 }
 
 function dealNextHand() {
@@ -862,6 +907,8 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   handState = null;
   gameConfig = null;
   gameOverInfo = null;
+  dealingInProgress = false;
+  dealtCardCount = {};
   clearBlindLevelTimer();
   await clearGameState();
   document.getElementById('jumbo').style.display = 'none';
@@ -894,6 +941,8 @@ document.getElementById('clearBansBtn').addEventListener('click', clearBans);
 // time, which is exactly the explicit, host-controlled behavior wanted.
 document.getElementById('startNewGameBtn').addEventListener('click', async () => {
   gameOverInfo = null;
+  dealingInProgress = false;
+  dealtCardCount = {};
   clearBlindLevelTimer();
   await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
   document.getElementById('jumbo').style.display = 'none';
@@ -1241,7 +1290,9 @@ function render() {
     // during it, regardless of the earlier fix inside seatCardsHtml() (that
     // fix is real and still needed, but this outer gate was bypassing it
     // entirely at certain moments).
-    const cardsHtml = folded ? seatCardsHtml(h, seat)
+    const cardsHtml = dealingInProgress
+      ? (() => { const n = dealtCardCount[seat] || 0; return n === 0 ? '' : n === 1 ? '\uD83C\uDCA0' : '\uD83C\uDCA0 \uD83C\uDCA0'; })()
+      : folded ? seatCardsHtml(h, seat)
       : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
 
     const sign = document.createElement('div');
@@ -1320,6 +1371,17 @@ function render() {
     // the one-off message dealNextHand() used to write directly (which the
     // very next render() would silently overwrite again).
     resultArea.innerHTML = `<div style="color:#c9a84c;font-weight:600;">🏆 Game Over — ${seatLabel(gameOverInfo.winnerSeat)} wins!</div>`;
+    hostControls.innerHTML = '';
+  }
+  if (dealingInProgress) {
+    // Same reasoning as gameOverInfo just above — render() calls its own
+    // resultArea logic every single pass, which would otherwise wipe this
+    // message out on literally the very next render() the animation
+    // triggers (a fresh hand has no pendingReveal/result yet, so it'd fall
+    // through to the plain "clear it" branch above). Setting it here,
+    // AFTER that branch runs and with real priority, is what makes it
+    // actually stick for the whole animation instead of flashing once.
+    resultArea.innerHTML = '<div style="color:#c9a84c;">The dealer is dealing the hand…</div>';
     hostControls.innerHTML = '';
   }
 
