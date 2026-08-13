@@ -1374,17 +1374,6 @@ function render() {
     resultArea.innerHTML = `<div style="color:#c9a84c;font-weight:600;">🏆 Game Over — ${seatLabel(gameOverInfo.winnerSeat)} wins!</div>`;
     hostControls.innerHTML = '';
   }
-  if (dealingInProgress) {
-    // Same reasoning as gameOverInfo just above — render() calls its own
-    // resultArea logic every single pass, which would otherwise wipe this
-    // message out on literally the very next render() the animation
-    // triggers (a fresh hand has no pendingReveal/result yet, so it'd fall
-    // through to the plain "clear it" branch above). Setting it here,
-    // AFTER that branch runs and with real priority, is what makes it
-    // actually stick for the whole animation instead of flashing once.
-    resultArea.innerHTML = '<div style="color:#c9a84c;">The dealer is dealing the hand…</div>';
-    hostControls.innerHTML = '';
-  }
 
   // Deal Next Hand sits to the right of "Hand complete" — measured against
   // its ACTUAL rendered position rather than a guessed offset, so it moves

@@ -81,7 +81,7 @@
 <div id="info"></div>
 <div id="myHand" style="text-align:center;">
   <div id="squeezeContainer"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
-  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">waiting for the deal…</div>
+  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">The dealer is dealing the hand…</div>
 </div>
 <div id="preActionArea" style="text-align:center;"></div>
 <div id="actions"></div>
@@ -410,7 +410,7 @@ function adoptSeat(seat) {
         console.error('Hole card render failed:', e);
       }
     } else {
-      document.getElementById('handHint').textContent = 'waiting for the deal…';
+      document.getElementById('handHint').textContent = 'The dealer is dealing the hand…';
     }
     sqTargetPeel = 0; // new cards always start flat/closed, never auto-revealed
   });
