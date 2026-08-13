@@ -459,9 +459,8 @@ function playDealingAnimation(onComplete) {
   // flying-card travel visually work correctly at this pace, dial this back
   // down toward 200ms for real play.
   // Stepping down toward the final 200ms in stages, confirming each speed
-  // looks right before going faster — 1400ms was clearly visible and
-  // confirmed both the per-card landing and the flying-card travel work.
-  const DEAL_STEP_MS = 700;
+  // looks right before going faster — 1400ms and 700ms both confirmed.
+  const DEAL_STEP_MS = 400;
   // The transition duration scales with DEAL_STEP_MS (70%) rather than
   // being a fixed number — so the card always visually finishes arriving
   // with a little margin before the NEXT card starts flying, at whatever
