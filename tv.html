@@ -50,6 +50,8 @@
     text-align:center;max-width:64%;z-index:10;}
   .chipPile{position:absolute;transform:translate(-50%,-50%);z-index:8;pointer-events:none;
     transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
+  .flyingCard{position:absolute;transform:translate(-50%,-50%);z-index:9;pointer-events:none;}
+  .flyingCard .burnCard{width:18px;height:24px;}
   .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
     background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
     padding:6px 9px;text-align:center;min-width:78px;
@@ -452,20 +454,56 @@ function playDealingAnimation(onComplete) {
   dealingInProgress = true;
   const order = dealOrderFromDealer(gameConfig.dealerSeat, handState.numSeats, gameConfig.activeSeats);
   gameConfig.activeSeats.forEach(s => { dealtCardCount[s] = 0; });
-  // TEMPORARILY slowed way down for testing — 200ms is basically impossible
-  // to actually observe when testing solo with multiple devices. Once Mark
-  // confirms the per-card increment visually works correctly at this slow
-  // pace, dial this back down toward 200ms for real play.
-  const DEAL_STEP_MS = 800;
+  // TEMPORARILY slowed way down for testing — even 800ms wasn't slow enough
+  // to watch clearly. Once Mark confirms the per-card increment AND the
+  // flying-card travel visually work correctly at this pace, dial this back
+  // down toward 200ms for real play.
+  const DEAL_STEP_MS = 1400;
+  // The transition duration scales with DEAL_STEP_MS (70%) rather than
+  // being a fixed number — so the card always visually finishes arriving
+  // with a little margin before the NEXT card starts flying, at whatever
+  // speed this is currently set to (matters once this comes back down to a
+  // brisk 200ms for real play, where a fixed duration could easily have
+  // multiple cards overlapping mid-flight).
+  const FLIGHT_MS = Math.round(DEAL_STEP_MS * 0.7);
   let step = 0;
   const totalSteps = order.length * 2; // two laps: everyone's first card, then everyone's second
+  function flyCardToSeat(seat, onArrive) {
+    const ovalTable = document.getElementById('ovalTable');
+    const targetSign = ovalTable ? ovalTable.querySelector(`.seatSign[data-seat="${seat}"]`) : null;
+    if (!ovalTable || !targetSign) { onArrive(); return; } // seat sign not in the DOM yet for some reason — skip the flourish, still land the card
+    const flying = document.createElement('div');
+    flying.className = 'flyingCard';
+    flying.style.left = '50%';
+    flying.style.top = '50%';
+    flying.style.transition = `left ${FLIGHT_MS}ms ease, top ${FLIGHT_MS}ms ease`;
+    flying.innerHTML = cardBackHtml(1);
+    ovalTable.appendChild(flying);
+    // Set the starting position first, THEN change it on the next paint —
+    // same two-frame trick the chip-pile animations already use, so the
+    // transition actually has a "before" state to animate from instead of
+    // jumping straight to the destination.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        flying.style.left = targetSign.style.left;
+        flying.style.top = targetSign.style.top;
+      });
+    });
+    setTimeout(() => { flying.remove(); onArrive(); }, FLIGHT_MS + 50);
+  }
   function dealNextCard() {
     if (step >= totalSteps) { dealingInProgress = false; onComplete(); return; }
     const seat = order[step % order.length];
-    dealtCardCount[seat] = Math.min(2, (dealtCardCount[seat] || 0) + 1);
-    step++;
     SFX.cardFlip();
-    render();
+    // The seat's own card slot only updates once the flying card actually
+    // lands — not the instant it's dealt — so there's never a moment where
+    // the destination already shows the card while a duplicate is still
+    // visibly traveling toward it.
+    flyCardToSeat(seat, () => {
+      dealtCardCount[seat] = Math.min(2, (dealtCardCount[seat] || 0) + 1);
+      render();
+    });
+    step++;
     setTimeout(dealNextCard, DEAL_STEP_MS);
   }
   dealNextCard();
@@ -1306,6 +1344,7 @@ function render() {
 
     const sign = document.createElement('div');
     sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
+    sign.dataset.seat = seat; // lets playDealingAnimation() look up a seat's on-screen position for the flying-card animation
     sign.style.left = signX + '%';
     sign.style.top = signY + '%';
     sign.innerHTML = `
