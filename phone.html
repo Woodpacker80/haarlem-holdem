@@ -224,20 +224,28 @@ function sqMakeTexture(draw, size = 512) {
   return tex;
 }
 const sqBackTexture = sqMakeTexture((ctx, size) => {
+  // Matches card-art.js's renderBack() exactly (solid gold border + a
+  // single solid filled diamond glyph) — was previously its own separate
+  // drawing (a semi-transparent border + a larger, outline-only diamond
+  // path), which is what created the mismatch between the TV's card-back
+  // and this one. Purely a canvas-drawing change — doesn't touch the
+  // squeeze mechanism's curl geometry, drag handling, or peel logic at all.
   ctx.fillStyle = '#BE1622';
   ctx.fillRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(201,168,76,0.7)';
-  ctx.lineWidth = size * 0.035;
-  ctx.strokeRect(size * 0.08, size * 0.08, size * 0.84, size * 0.84);
-  ctx.beginPath();
-  ctx.moveTo(size / 2, size * 0.18);
-  ctx.lineTo(size * 0.82, size / 2);
-  ctx.lineTo(size / 2, size * 0.82);
-  ctx.lineTo(size * 0.18, size / 2);
-  ctx.closePath();
-  ctx.strokeStyle = 'rgba(201,168,76,0.5)';
-  ctx.lineWidth = size * 0.018;
-  ctx.stroke();
+  ctx.save();
+  ctx.strokeStyle = '#c9a84c';
+  ctx.lineWidth = size * 0.02;
+  const inset = size * 0.06;
+  ctx.strokeRect(inset, inset, size - inset * 2, size - inset * 2);
+  ctx.restore();
+  ctx.save();
+  ctx.fillStyle = '#c9a84c';
+  ctx.globalAlpha = 0.9;
+  ctx.font = `700 ${size * 0.3}px 'Montserrat', -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('\u2666', size / 2, size / 2);
+  ctx.restore();
 });
 const sqBlankFaceTexture = sqMakeTexture((ctx, size) => {
   ctx.fillStyle = '#f5f1e6';
