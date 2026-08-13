@@ -83,8 +83,8 @@
   <div id="squeezeContainer" style="display:none;"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;"></div>
 </div>
-<div id="preActionArea" style="text-align:center;width:100%;"></div>
 <div id="actions"></div>
+<div id="preActionArea" style="text-align:center;width:100%;"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
 </div>
@@ -634,15 +634,24 @@ function render(state) {
     // Mutually exclusive: Sit Out already implies an unconditional fold every
     // hand, so Check/Fold's "check if it's free" behavior adds nothing on
     // top of it — no real reason for a player to want both armed at once.
+    // The sibling box is unchecked directly here (not just via the Firebase
+    // write) so it happens instantly, without waiting on a round-trip that
+    // could otherwise let both appear checked for a moment on a slow connection.
     document.getElementById('sitOutBox').addEventListener('change', (e) => {
       const on = e.target.checked;
       setSitOut(mySeat, on ? true : null);
-      if (on) setPreAction(mySeat, null);
+      if (on) {
+        setPreAction(mySeat, null);
+        document.getElementById('checkFoldBox').checked = false;
+      }
     });
     document.getElementById('checkFoldBox').addEventListener('change', (e) => {
       const on = e.target.checked;
       setPreAction(mySeat, on ? 'checkFold' : null);
-      if (on) setSitOut(mySeat, null);
+      if (on) {
+        setSitOut(mySeat, null);
+        document.getElementById('sitOutBox').checked = false;
+      }
     });
   } else {
     preActionArea.innerHTML = '';
