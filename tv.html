@@ -456,11 +456,10 @@ function playDealingAnimation(onComplete) {
   let step = 0;
   const totalSteps = order.length * 2; // two laps: everyone's first card, then everyone's second
   function dealNextCard() {
-    if (step >= totalSteps) { dealingInProgress = false; console.log('[deal-debug] animation complete, calling onComplete'); onComplete(); return; }
+    if (step >= totalSteps) { dealingInProgress = false; onComplete(); return; }
     const seat = order[step % order.length];
     dealtCardCount[seat] = Math.min(2, (dealtCardCount[seat] || 0) + 1);
     step++;
-    console.log(`[deal-debug] step=${step}/${totalSteps} dealt to seat=${seat}, dealtCardCount=`, JSON.stringify(dealtCardCount), 'dealingInProgress=', dealingInProgress);
     SFX.cardFlip();
     render();
     setTimeout(dealNextCard, DEAL_STEP_MS);
@@ -995,9 +994,17 @@ function revealNextStep() {
   }, 1100);
 }
 
+// A single real card-back (the actual drawn graphic — red background, gold
+// border, diamond pattern — not a bare Unicode character). count is 0/1/2.
+// Used for every "face-down, no info to show" moment in the game — a fresh
+// deal in progress, an undecided reveal, a mucked hand — so there's exactly
+// one visual language for "face-down card" everywhere, not two.
+function cardBackHtml(count) {
+  const one = `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10\u2660</span>`;
+  return count <= 0 ? '' : count === 1 ? one : one + one;
+}
 function muckedCardsHtml() {
-  const back = `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10\u2660</span>`;
-  return back + back;
+  return cardBackHtml(2);
 }
 // What a seat's card cell should show, across every phase a hand can be in.
 function seatCardsHtml(h, seat) {
@@ -1005,7 +1012,7 @@ function seatCardsHtml(h, seat) {
     const decision = h.pendingReveal.decisions[seat];
     if (decision === 'shown') return h.holeCards[seat].map(renderCard).join('');
     if (decision === 'mucked') return muckedCardsHtml();
-    return '\uD83C\uDCA0 \uD83C\uDCA0'; // hasn't decided yet
+    return cardBackHtml(2); // hasn't decided yet
   }
   if (!h.result) {
     // Called here specifically for the "show it early" all-in case (see the
@@ -1024,7 +1031,7 @@ function seatCardsHtml(h, seat) {
     if (folded) return muckedCardsHtml();
     const anyAllIn = h.activeSeats.some(s => h.stacks[s] === 0 && !h.foldedSeats.includes(s));
     if (anyAllIn) return h.holeCards[seat].map(renderCard).join('');
-    return '\uD83C\uDCA0 \uD83C\uDCA0';
+    return cardBackHtml(2);
   }
   if (h.result) {
     if (h.result.uncontested) {
@@ -1042,7 +1049,7 @@ function seatCardsHtml(h, seat) {
     }
     return h.holeCards[seat].map(renderCard).join(''); // all-in path — everyone shows, no muck
   }
-  return '\uD83C\uDCA0 \uD83C\uDCA0';
+  return cardBackHtml(2);
 }
 
 function render() {
@@ -1289,12 +1296,9 @@ function render() {
     // fix is real and still needed, but this outer gate was bypassing it
     // entirely at certain moments).
     const cardsHtml = dealingInProgress
-      ? (() => { const n = dealtCardCount[seat] || 0; return n === 0 ? '' : n === 1 ? '\uD83C\uDCA0' : '\uD83C\uDCA0 \uD83C\uDCA0'; })()
+      ? cardBackHtml(dealtCardCount[seat] || 0)
       : folded ? seatCardsHtml(h, seat)
-      : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
-    if (dealingInProgress) {
-      console.log(`[deal-debug] rendering seat=${seat} dealtCardCount[seat]=${dealtCardCount[seat]} cardsHtml="${cardsHtml}"`);
-    }
+      : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : cardBackHtml(2);
 
     const sign = document.createElement('div');
     sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
