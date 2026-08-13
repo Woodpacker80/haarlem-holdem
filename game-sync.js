@@ -170,6 +170,21 @@ export function watchPlayerNames(cb) {
   onValue(roomRef('game/playerNames'), (snap) => cb(snap.val() || {}));
 }
 
+// Blind/ante level info, for the phone's own countdown display. Written
+// only when the schedule actually changes (initial start, or each real
+// level-up) — NOT once a second — since the countdown text itself is
+// computed locally on each device from `nextLevelUpAt` (a shared timestamp)
+// ticked by its own local setInterval. Writing this to Firebase every
+// second just to update visible text would be a lot of wasted writes for
+// something every device can already tick on its own from one shared
+// number.
+export function writeBlindLevel(info) {
+  return set(roomRef('game/blindLevel'), info);
+}
+export function watchBlindLevel(cb) {
+  onValue(roomRef('game/blindLevel'), (snap) => cb(snap.val() || null));
+}
+
 // Check/Fold pre-selection: a phone can arm this while waiting for its
 // turn — the host resolves it automatically (still with a brief "acting"
 // beat, not an instant skip) the moment the turn actually arrives. Written

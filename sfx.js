@@ -118,5 +118,19 @@
     tone({ freq: 480, duration: 0.2, type: 'triangle', gain: 0.08 });
   }
 
-  global.SFX = { cardFlip, win, fold, checkCall, raise, unlock, decisionWarning };
+  // Blinds actually going up — the one moment in the whole game worth a
+  // genuinely distinct, attention-getting cue rather than another subtle
+  // one-shot. A bright bell strike (fundamental + a close overtone for
+  // shimmer), then — after a beat — a deep, long gong strike underneath it.
+  function blindsUp() {
+    tone({ freq: 1046.5, duration: 0.5, type: 'sine', gain: 0.13 });
+    tone({ freq: 1318.5, duration: 0.45, type: 'sine', gain: 0.07 });
+    setTimeout(() => {
+      tone({ freq: 196, duration: 1.6, type: 'sine', gain: 0.14 });
+      tone({ freq: 233, duration: 1.4, type: 'triangle', gain: 0.07 });
+      noiseBurst({ duration: 0.5, filterFreq: 400, filterType: 'lowpass', gain: 0.05 });
+    }, 550);
+  }
+
+  global.SFX = { cardFlip, win, fold, checkCall, raise, unlock, decisionWarning, blindsUp };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -296,7 +296,7 @@
 <script src="sfx.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction, writeBlindLevel } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
 
@@ -371,6 +371,7 @@ function scheduleBlindLevelUp() {
   if (blindLevelTimer) clearTimeout(blindLevelTimer);
   nextLevelUpAt = Date.now() + BLIND_LEVEL_MINUTES * 60 * 1000;
   updateLevelUpBadge();
+  syncBlindLevelToPhones();
   if (!levelUpCountdownInterval) levelUpCountdownInterval = setInterval(updateLevelUpBadge, 1000);
   blindLevelTimer = setTimeout(() => {
     if (!gameConfig) return; // game ended before this level-up ever fired
@@ -378,8 +379,21 @@ function scheduleBlindLevelUp() {
     gameConfig.bigBlindAmount = roundToNiceChipValue(gameConfig.bigBlindAmount * 1.5);
     gameConfig.anteAmount = gameConfig.smallBlindAmount;
     updateBlindsBadge();
-    scheduleBlindLevelUp(); // and schedule the level after this one (also resets nextLevelUpAt)
+    SFX.blindsUp(); // the one moment worth a distinct, attention-getting cue — bell, then gong
+    scheduleBlindLevelUp(); // and schedule the level after this one (also resets nextLevelUpAt + re-syncs)
   }, BLIND_LEVEL_MINUTES * 60 * 1000);
+}
+// Pushes the current + next-preview blind numbers and the shared
+// nextLevelUpAt timestamp to Firebase — phones tick their OWN local
+// countdown off this, rather than the TV writing new text every second.
+function syncBlindLevelToPhones() {
+  if (!gameConfig) return;
+  writeBlindLevel({
+    smallBlindAmount: gameConfig.smallBlindAmount,
+    bigBlindAmount: gameConfig.bigBlindAmount,
+    anteAmount: gameConfig.anteAmount,
+    nextLevelUpAt,
+  });
 }
 function clearBlindLevelTimer() {
   if (blindLevelTimer) clearTimeout(blindLevelTimer);
@@ -387,6 +401,7 @@ function clearBlindLevelTimer() {
   nextLevelUpAt = null;
   if (levelUpCountdownInterval) clearInterval(levelUpCountdownInterval);
   levelUpCountdownInterval = null;
+  writeBlindLevel(null);
   const badge = document.getElementById('blindsBadge');
   if (badge) badge.style.display = 'none';
   const levelBadge = document.getElementById('levelUpBadge');

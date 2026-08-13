@@ -33,6 +33,7 @@
     pointer-events:none;z-index:5;text-align:center;padding:0 10px;}
   #squeezeStackReadout .sr-stack{font-size:18px;}
   #squeezeStackReadout .sr-tocall{font-size:14px;color:#a68a4a;}
+  #squeezeStackReadout .sr-blindtimer{font-size:11px;color:#8a7440;font-weight:500;letter-spacing:.02em;}
   #info{font-size:13px;color:#7d8299;text-align:center;}
   #actions{width:100%;display:flex;flex-direction:column;gap:26px;}
   #actionsTop{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
@@ -91,7 +92,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction, watchBlindLevel } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -107,6 +108,31 @@ let wasDisconnected = false;
 let currentName = null;
 let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
 let preActions = {}; // seat -> 'checkFold' | null, kept live so the checkbox reflects the host clearing it (new street, or consumed)
+let blindLevelInfo = null; // {smallBlindAmount, bigBlindAmount, anteAmount, nextLevelUpAt} synced from the host — see game-sync.js
+let blindTimerInterval = null; // ticks the local countdown text once a second, same shared timestamp the TV uses
+// Mirrors tv.html's rounding exactly, so the phone's own "next level"
+// preview always matches what the TV will actually apply — duplicated
+// rather than shared as a module import since it's a tiny, pure function
+// and the two files don't currently share a common helpers module.
+function roundToNiceChipValue(value) {
+  if (value < 20) return Math.max(5, Math.round(value / 5) * 5);
+  if (value < 100) return Math.round(value / 5) * 5;
+  if (value < 500) return Math.round(value / 25) * 25;
+  if (value < 2000) return Math.round(value / 50) * 50;
+  return Math.round(value / 100) * 100;
+}
+function updateBlindTimerLine() {
+  const el = document.getElementById('sr-blindtimer-line');
+  if (!el) return;
+  if (!blindLevelInfo || blindLevelInfo.nextLevelUpAt == null) { el.textContent = ''; return; }
+  const remainingMs = Math.max(0, blindLevelInfo.nextLevelUpAt - Date.now());
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+  const nextSb = roundToNiceChipValue(blindLevelInfo.smallBlindAmount * 1.5);
+  const nextBb = roundToNiceChipValue(blindLevelInfo.bigBlindAmount * 1.5);
+  el.textContent = `Blinds go up to ${nextSb}/${nextBb} in ${mm}:${String(ss).padStart(2, '0')}`;
+}
 
 let unsubscribeHoleCards = null;
 
@@ -472,6 +498,16 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
     const box = document.getElementById('checkFoldBox');
     if (box) box.checked = !!armed[mySeat]; // keep in sync if the host cleared it (new street, or just consumed)
   });
+  watchBlindLevel((info) => {
+    blindLevelInfo = info;
+    if (info && info.nextLevelUpAt != null) {
+      if (!blindTimerInterval) blindTimerInterval = setInterval(updateBlindTimerLine, 1000);
+    } else if (blindTimerInterval) {
+      clearInterval(blindTimerInterval);
+      blindTimerInterval = null;
+    }
+    updateBlindTimerLine();
+  });
 
   watchPublicState((state) => {
     latestPublicState = state;
@@ -512,7 +548,9 @@ function render(state) {
   const myToCall = Math.max(0, (state.currentBet || 0) - myBet);
   document.getElementById('squeezeStackReadout').innerHTML =
     `<div class="sr-stack">Your Stack ${myStack}</div>` +
-    (myToCall > 0 ? `<div class="sr-tocall">To call ${myToCall}</div>` : '');
+    (myToCall > 0 ? `<div class="sr-tocall">To call ${myToCall}</div>` : '') +
+    `<div class="sr-blindtimer" id="sr-blindtimer-line"></div>`;
+  updateBlindTimerLine(); // fill it in immediately rather than waiting for the next 1s tick
   document.getElementById('info').textContent = state.result
     ? 'Hand complete — waiting for the next hand'
     : '';
