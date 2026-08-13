@@ -452,7 +452,11 @@ function playDealingAnimation(onComplete) {
   dealingInProgress = true;
   const order = dealOrderFromDealer(gameConfig.dealerSeat, handState.numSeats, gameConfig.activeSeats);
   gameConfig.activeSeats.forEach(s => { dealtCardCount[s] = 0; });
-  const DEAL_STEP_MS = 200; // brisker than the ~1650ms/card board reveal — 12 deals at a full 6-max table would drag badly at that pace
+  // TEMPORARILY slowed way down for testing — 200ms is basically impossible
+  // to actually observe when testing solo with multiple devices. Once Mark
+  // confirms the per-card increment visually works correctly at this slow
+  // pace, dial this back down toward 200ms for real play.
+  const DEAL_STEP_MS = 800;
   let step = 0;
   const totalSteps = order.length * 2; // two laps: everyone's first card, then everyone's second
   function dealNextCard() {
