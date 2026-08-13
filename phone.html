@@ -80,7 +80,7 @@
 <div id="board"></div>
 <div id="info"></div>
 <div id="myHand" style="text-align:center;">
-  <div id="squeezeContainer"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
+  <div id="squeezeContainer" style="display:none;"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">The dealer is dealing the hand…</div>
 </div>
 <div id="preActionArea" style="text-align:center;"></div>
@@ -109,6 +109,7 @@ let currentName = null;
 let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
 let preActions = {}; // seat -> 'checkFold' | null, kept live so the checkbox reflects the host clearing it (new street, or consumed)
 let blindLevelInfo = null; // {smallBlindAmount, bigBlindAmount, anteAmount, nextLevelUpAt} synced from the host — see game-sync.js
+let hasRealCards = false; // guards the squeeze gesture — without this, squeezing before the deal reveals a blank, information-less face, which reads as a bug to a first-time player rather than "nothing to see yet"
 let serverTimeOffset = 0; // corrects this device's own clock drift, same mechanism tv.html uses — see watchServerTimeOffset in game-sync.js
 function correctedNow() { return Date.now() + serverTimeOffset; }
 let blindTimerInterval = null; // ticks the local countdown text once a second, same shared timestamp the TV uses
@@ -359,6 +360,7 @@ function sqApplyCurl(peel) {
 
 let sqPeel = 0, sqTargetPeel = 0, sqDragging = false, sqDragStartY = 0, sqDragStartPeel = 0;
 sqRenderer.domElement.addEventListener('pointerdown', (e) => {
+  if (!hasRealCards) return; // nothing to peek at yet — let the gesture do nothing rather than reveal a blank, broken-looking face
   e.preventDefault();
   sqDragging = true;
   sqDragStartY = e.clientY; sqDragStartPeel = sqTargetPeel;
@@ -396,6 +398,9 @@ function adoptSeat(seat) {
   document.getElementById('seatBadge').textContent = `You are Seat ${mySeat + 1}`;
   if (unsubscribeHoleCards) unsubscribeHoleCards();
   unsubscribeHoleCards = watchOwnHoleCards(mySeat, (cards) => {
+    hasRealCards = !!cards;
+    document.getElementById('squeezeContainer').style.display = hasRealCards ? 'block' : 'none';
+    if (hasRealCards) resizeSqRenderer(); // was 0×0 while hidden — same fix pattern as when gameArea itself used to hide this container
     if (cards) {
       try {
         const suitName = { '\u2660': 'spades', '\u2665': 'hearts', '\u2666': 'diamonds', '\u2663': 'clubs' };
