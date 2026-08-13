@@ -605,19 +605,29 @@ function render(state) {
   const myRevealTurn = state.pendingReveal && state.pendingReveal.order[state.pendingReveal.currentIndex] === mySeat;
   const myVoluntaryTurn = state.pendingVoluntaryShow && state.pendingVoluntaryShow.seat === mySeat && !state.pendingVoluntaryShow.decided;
 
-  // Check/Fold and Sit Out pre-selection: shown whenever you haven't
-  // folded and it's not a reveal decision — DELIBERATELY including your
-  // own actual turn, not just before it. Originally hidden during your own
-  // turn (on the assumption you'd just use the real action buttons
-  // instead), but that created a real dead zone: the host still waits
-  // ~1s after your turn genuinely arrives before auto-resolving an armed
-  // checkbox, and that's exactly the moment you'd most want to reconsider
-  // — but the checkbox had already vanished from view by then, so there
-  // was never any way to actually uncheck it in time. Showing it
-  // continuously (alongside the real action buttons once it's genuinely
-  // your turn) closes that gap.
-  const iAmFolded = state.foldedSeats.includes(mySeat);
-  const showPreAction = !state.result && !myRevealTurn && !myVoluntaryTurn && !iAmFolded && state.actingSeat !== null;
+  // Check/Fold and Sit Out pre-selection: shown at all times EXCEPT during
+  // an actual reveal/show decision (which has its own dedicated Show/Muck
+  // buttons). Deliberately NOT gated on your own turn, on being folded this
+  // hand, or on a hand result currently showing — three real dead zones
+  // found in testing, all with the same shape: the checkbox vanished from
+  // view at exactly the moment someone would want to change it, with no
+  // way to do so until the state moved on by itself.
+  //   - Own turn: the host still waits ~1s after your turn genuinely
+  //     arrives before auto-resolving an armed checkbox — hiding it then
+  //     removed the only window to reconsider in time.
+  //   - Folded this hand: doesn't affect the current hand either way
+  //     (nothing left to resolve), but hiding it meant Sit Out couldn't be
+  //     turned back off for FUTURE hands right after an auto-fold, and
+  //     Check/Fold couldn't be pre-armed early for the next hand.
+  //   - A result is showing / waiting for next hand: `state.actingSeat` is
+  //     null and `state.result` is set the whole time, which combined to
+  //     hide the checkboxes for the entire between-hands window — reported
+  //     live as "checked Sit Out, then had no way to deselect it."
+  // None of this risks anything downstream: the host only ever acts on
+  // preActions/sitOutSeats at the moment it's genuinely that seat's turn,
+  // so a checked box sitting there while folded or between hands has no
+  // effect until a real turn arrives.
+  const showPreAction = !myRevealTurn && !myVoluntaryTurn;
   const preActionArea = document.getElementById('preActionArea');
   if (showPreAction) {
     const armed = !!preActions[mySeat];
