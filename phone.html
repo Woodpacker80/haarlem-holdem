@@ -83,7 +83,7 @@
   <div id="squeezeContainer" style="display:none;"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
   <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;"></div>
 </div>
-<div id="preActionArea" style="text-align:center;"></div>
+<div id="preActionArea" style="text-align:center;width:100%;"></div>
 <div id="actions"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
@@ -622,16 +622,27 @@ function render(state) {
   if (showPreAction) {
     const armed = !!preActions[mySeat];
     const sittingOut = !!sitOutSeats[mySeat];
+    // Positioned to mirror the real action row below: Sit Out on the left
+    // (under where Fold sits), Check/Fold on the right (under where Custom
+    // sits) — same space-between layout as #actionsFoldRow, so nothing
+    // shifts position once your actual turn arrives and those buttons appear.
     preActionArea.innerHTML = `
-      <div style="display:flex;gap:18px;justify-content:center;align-items:center;flex-wrap:wrap;">
-        <label><input type="checkbox" id="checkFoldBox" ${armed ? 'checked' : ''}> Check/Fold</label>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
         <label><input type="checkbox" id="sitOutBox" ${sittingOut ? 'checked' : ''}> Sit Out</label>
+        <label><input type="checkbox" id="checkFoldBox" ${armed ? 'checked' : ''}> Check/Fold</label>
       </div>`;
-    document.getElementById('checkFoldBox').addEventListener('change', (e) => {
-      setPreAction(mySeat, e.target.checked ? 'checkFold' : null);
-    });
+    // Mutually exclusive: Sit Out already implies an unconditional fold every
+    // hand, so Check/Fold's "check if it's free" behavior adds nothing on
+    // top of it — no real reason for a player to want both armed at once.
     document.getElementById('sitOutBox').addEventListener('change', (e) => {
-      setSitOut(mySeat, e.target.checked ? true : null);
+      const on = e.target.checked;
+      setSitOut(mySeat, on ? true : null);
+      if (on) setPreAction(mySeat, null);
+    });
+    document.getElementById('checkFoldBox').addEventListener('change', (e) => {
+      const on = e.target.checked;
+      setPreAction(mySeat, on ? 'checkFold' : null);
+      if (on) setSitOut(mySeat, null);
     });
   } else {
     preActionArea.innerHTML = '';

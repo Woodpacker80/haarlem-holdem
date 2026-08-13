@@ -882,8 +882,8 @@ function ensureVoluntaryTimer() {
   voluntaryTimerSeat = pending.seat;
   voluntaryTimerHandle = setTimeout(() => applyVoluntaryReveal(pending.seat, 'muck'), 5000);
 }
-watchPreActions((armed) => { preActions = armed; });
-watchSitOut((sitting) => { sitOutSeats = sitting; });
+watchPreActions((armed) => { preActions = armed; render(); });
+watchSitOut((sitting) => { sitOutSeats = sitting; render(); });
 watchServerTimeOffset((offset) => { serverTimeOffset = offset; });
 
 watchActionQueue((key, request) => {
@@ -1136,7 +1136,13 @@ function render() {
         let action;
         if (sitOutSeats[actingSeat]) {
           action = { type: 'fold' }; // unconditional — sit-out re-checked fresh here, not the value captured when the timer was scheduled, so a last-second uncheck still cancels correctly
-        } else {
+        } else if (preActions[actingSeat]) {
+          // Re-checked fresh here too, same as sit-out above — previously this
+          // branch was reached just by "sit-out is off," with no check that
+          // Check/Fold was actually still armed. If a player unchecked BOTH
+          // in the resolve window, this would still silently fire a check/fold
+          // on their behalf. Now it only fires if Check/Fold is genuinely
+          // still armed at resolve time.
           const fakeBettingRoundState = {
             actingSeat, activeSeats: handState.activeSeats, folded: handState.foldedSeats,
             allIn: handState.activeSeats.filter(s => handState.stacks[s] === 0 && !handState.foldedSeats.includes(s)),
@@ -1146,6 +1152,8 @@ function render() {
           const { legal } = getLegalActions(fakeBettingRoundState, actingSeat);
           action = legal.includes('check') ? { type: 'check' } : { type: 'fold' };
           setPreAction(actingSeat, null); // only Check/Fold consumes itself — sit-out stays armed indefinitely, by design
+        } else {
+          return; // both were unchecked in time — nothing to resolve, let the player act manually
         }
         try {
           handState = applyHandAction(handState, actingSeat, action);
