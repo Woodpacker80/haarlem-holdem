@@ -21,7 +21,7 @@ import {
   ref, set, get, remove, push, onValue, onChildAdded, runTransaction, onDisconnect, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-const MAX_SEATS = 6;
+const MAX_SEATS = 8;
 
 // This phone's own in-flight claim, if any. See the note in claimSeat below
 // for why this exists — it's not about two different phones racing (the
@@ -213,6 +213,21 @@ export function setPreAction(seat, armed) {
 }
 export function watchPreActions(cb) {
   onValue(roomRef('game/preActions'), (snap) => cb(snap.val() || {}));
+}
+
+// Sit Out: deliberately a SEPARATE Firebase path from preActions, not a
+// variant of it — Check/Fold re-arms every street/hand on purpose (so an
+// old decision can't reach into board cards the player hasn't seen), but
+// Sit Out is meant to be sticky indefinitely, across as many hands as it
+// takes, until the player manually turns it back off. Mixing them into one
+// path would mean either both get cleared together (breaking Sit Out) or
+// neither does (breaking Check/Fold's re-arm) — keeping them separate
+// avoids that entirely.
+export function setSitOut(seat, sittingOut) {
+  return set(roomRef(`game/sitOut/${seat}`), sittingOut);
+}
+export function watchSitOut(cb) {
+  onValue(roomRef('game/sitOut'), (snap) => cb(snap.val() || {}));
 }
 
 // Public game state: everything except hole cards (board, street, whose

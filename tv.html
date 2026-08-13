@@ -298,7 +298,7 @@
 <script src="sfx.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction, writeBlindLevel, watchServerTimeOffset } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction, writeBlindLevel, watchServerTimeOffset, watchSitOut, setSitOut } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
 
@@ -515,6 +515,7 @@ function playDealingAnimation(onComplete) {
 // in progress so it fires exactly once per armed turn, with the same
 // brief "acting" beat a manual action would have gotten.
 let preActions = {};
+let sitOutSeats = {}; // seat -> true/false, kept live — deliberately NEVER cleared per-street or per-hand, unlike preActions (see game-sync.js for why)
 let preActionPendingSeat = null;
 let preActionTimer = null;
 let lastStreetForPreActions = null; // detects a new street beginning, to clear stale arm-state
@@ -882,6 +883,7 @@ function ensureVoluntaryTimer() {
   voluntaryTimerHandle = setTimeout(() => applyVoluntaryReveal(pending.seat, 'muck'), 5000);
 }
 watchPreActions((armed) => { preActions = armed; });
+watchSitOut((sitting) => { sitOutSeats = sitting; });
 watchServerTimeOffset((offset) => { serverTimeOffset = offset; });
 
 watchActionQueue((key, request) => {
@@ -953,6 +955,7 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   gameOverInfo = null;
   dealingInProgress = false;
   dealtCardCount = {};
+  Object.keys(sitOutSeats).forEach(seat => { if (sitOutSeats[seat]) setSitOut(seat, null); });
   clearBlindLevelTimer();
   await clearGameState();
   document.getElementById('jumbo').style.display = 'none';
@@ -987,7 +990,9 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   gameOverInfo = null;
   dealingInProgress = false;
   dealtCardCount = {};
+  Object.keys(sitOutSeats).forEach(seat => { if (sitOutSeats[seat]) setSitOut(seat, null); });
   clearBlindLevelTimer();
+  writeHoleCards(null); // Quit Game already cleared this; Start New Game never did — closing that gap so a newly-seated player can never see a previous game's leftover data before the first real deal
   await Promise.all(Object.entries(currentSeats).map(([seatStr, uid]) => kickSeat(uid, Number(seatStr))));
   document.getElementById('jumbo').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'block';
@@ -1111,28 +1116,37 @@ function render() {
     Object.keys(preActions).forEach(seat => { if (preActions[seat]) setPreAction(seat, null); });
   }
   // Auto-resolve: if it's now genuinely someone's turn and they have
-  // Check/Fold armed, resolve it after the same brief delay a manual
-  // action effectively has anyway — this is deliberate, not a performance
-  // shortcut, so the table still sees a normal "acting" beat rather than
-  // turns visibly skipping. Guarded by preActionPendingSeat so this only
-  // fires once per armed turn, not on every render while the delay ticks.
+  // Check/Fold armed OR are sitting out, resolve it after the same brief
+  // delay a manual action effectively has anyway — this is deliberate, not
+  // a performance shortcut, so the table still sees a normal "acting" beat
+  // rather than turns visibly skipping. Guarded by preActionPendingSeat so
+  // this only fires once per armed turn, not on every render while the
+  // delay ticks. Sit Out takes priority over Check/Fold if a seat somehow
+  // has both armed — sitting out is the more encompassing state, and its
+  // fold is unconditional (no legality check needed, since folding is
+  // always legal for whoever's turn it genuinely is).
   if (h.bettingRound && h.bettingRound.actingSeat !== null && !h.result) {
     const actingSeat = h.bettingRound.actingSeat;
-    if (preActions[actingSeat] && preActionPendingSeat !== actingSeat) {
+    if ((sitOutSeats[actingSeat] || preActions[actingSeat]) && preActionPendingSeat !== actingSeat) {
       preActionPendingSeat = actingSeat;
       if (preActionTimer) clearTimeout(preActionTimer);
       preActionTimer = setTimeout(() => {
         preActionPendingSeat = null;
         if (!handState || !handState.bettingRound || handState.bettingRound.actingSeat !== actingSeat) return; // stale by the time this fired
-        const fakeBettingRoundState = {
-          actingSeat, activeSeats: handState.activeSeats, folded: handState.foldedSeats,
-          allIn: handState.activeSeats.filter(s => handState.stacks[s] === 0 && !handState.foldedSeats.includes(s)),
-          bets: handState.bettingRound.bets, stacks: handState.stacks,
-          currentBet: handState.bettingRound.currentBet, minRaiseAmount: handState.bettingRound.minRaiseAmount,
-        };
-        const { legal } = getLegalActions(fakeBettingRoundState, actingSeat);
-        const action = legal.includes('check') ? { type: 'check' } : { type: 'fold' };
-        setPreAction(actingSeat, null); // consumed — must be re-armed for any future turn, same street or not
+        let action;
+        if (sitOutSeats[actingSeat]) {
+          action = { type: 'fold' }; // unconditional — sit-out re-checked fresh here, not the value captured when the timer was scheduled, so a last-second uncheck still cancels correctly
+        } else {
+          const fakeBettingRoundState = {
+            actingSeat, activeSeats: handState.activeSeats, folded: handState.foldedSeats,
+            allIn: handState.activeSeats.filter(s => handState.stacks[s] === 0 && !handState.foldedSeats.includes(s)),
+            bets: handState.bettingRound.bets, stacks: handState.stacks,
+            currentBet: handState.bettingRound.currentBet, minRaiseAmount: handState.bettingRound.minRaiseAmount,
+          };
+          const { legal } = getLegalActions(fakeBettingRoundState, actingSeat);
+          action = legal.includes('check') ? { type: 'check' } : { type: 'fold' };
+          setPreAction(actingSeat, null); // only Check/Fold consumes itself — sit-out stays armed indefinitely, by design
+        }
         try {
           handState = applyHandAction(handState, actingSeat, action);
           logEvent(formatAction(actingSeat, action, handState.stacks[actingSeat]));
@@ -1141,7 +1155,7 @@ function render() {
           console.error('Pre-action auto-resolve failed for seat', actingSeat, ':', e.message);
         }
       }, 1000);
-    } else if (!preActions[actingSeat] && preActionPendingSeat === actingSeat) {
+    } else if (!sitOutSeats[actingSeat] && !preActions[actingSeat] && preActionPendingSeat === actingSeat) {
       // Armed state got cleared out from under an in-flight delay (e.g. the
       // player unchecked it just in time) — cancel rather than still fire.
       if (preActionTimer) clearTimeout(preActionTimer);

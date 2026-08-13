@@ -92,7 +92,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction, watchBlindLevel, watchServerTimeOffset } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction, watchBlindLevel, watchServerTimeOffset, watchSitOut, setSitOut } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -108,6 +108,7 @@ let wasDisconnected = false;
 let currentName = null;
 let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
 let preActions = {}; // seat -> 'checkFold' | null, kept live so the checkbox reflects the host clearing it (new street, or consumed)
+let sitOutSeats = {}; // seat -> true/false, kept live — separate from preActions since this is sticky indefinitely, not re-armed per street
 let blindLevelInfo = null; // {smallBlindAmount, bigBlindAmount, anteAmount, nextLevelUpAt} synced from the host — see game-sync.js
 let hasRealCards = false; // guards the squeeze gesture — without this, squeezing before the deal reveals a blank, information-less face, which reads as a bug to a first-time player rather than "nothing to see yet"
 let serverTimeOffset = 0; // corrects this device's own clock drift, same mechanism tv.html uses — see watchServerTimeOffset in game-sync.js
@@ -522,6 +523,11 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
     const box = document.getElementById('checkFoldBox');
     if (box) box.checked = !!armed[mySeat]; // keep in sync if the host cleared it (new street, or just consumed)
   });
+  watchSitOut((sitting) => {
+    sitOutSeats = sitting;
+    const box = document.getElementById('sitOutBox');
+    if (box) box.checked = !!sitting[mySeat]; // keep in sync if the host cleared it (Quit Game / Start New Game)
+  });
   watchServerTimeOffset((offset) => { serverTimeOffset = offset; });
   watchBlindLevel((info) => {
     blindLevelInfo = info;
@@ -610,9 +616,17 @@ function render(state) {
   const preActionArea = document.getElementById('preActionArea');
   if (showPreAction) {
     const armed = !!preActions[mySeat];
-    preActionArea.innerHTML = `<label><input type="checkbox" id="checkFoldBox" ${armed ? 'checked' : ''}> Check/Fold</label>`;
+    const sittingOut = !!sitOutSeats[mySeat];
+    preActionArea.innerHTML = `
+      <div style="display:flex;gap:18px;justify-content:center;align-items:center;flex-wrap:wrap;">
+        <label><input type="checkbox" id="checkFoldBox" ${armed ? 'checked' : ''}> Check/Fold</label>
+        <label><input type="checkbox" id="sitOutBox" ${sittingOut ? 'checked' : ''}> Sit Out</label>
+      </div>`;
     document.getElementById('checkFoldBox').addEventListener('change', (e) => {
       setPreAction(mySeat, e.target.checked ? 'checkFold' : null);
+    });
+    document.getElementById('sitOutBox').addEventListener('change', (e) => {
+      setSitOut(mySeat, e.target.checked ? true : null);
     });
   } else {
     preActionArea.innerHTML = '';
