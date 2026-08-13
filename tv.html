@@ -52,6 +52,14 @@
     transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
   .flyingCard{position:absolute;transform:translate(-50%,-50%);z-index:9;pointer-events:none;}
   .flyingCard .burnCard{width:18px;height:24px;}
+  .foldedCardsFan{position:absolute;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
+    width:1px;height:1px;transition:left 0.7s ease-in-out, top 0.7s ease-in-out;}
+  .foldedCardsFan .fanCard{position:absolute;top:0;left:0;width:26px;height:36px;
+    margin:-18px 0 0 -13px; /* centers each card on the anchor point before its own rotation offset */
+    border-radius:4px;background-size:cover;background-position:center;
+    box-shadow:0 1px 3px rgba(0,0,0,0.5);}
+  .foldedCardsFan .fanCard:nth-child(1){transform:translate(-5px,0) rotate(-13deg);}
+  .foldedCardsFan .fanCard:nth-child(2){transform:translate(5px,1px) rotate(11deg);}
   .seatSign{position:absolute;transform:translate(-50%,-50%);z-index:2;
     background:#0d1626;border:1.5px solid #3a3f52;border-radius:8px;
     padding:6px 9px;text-align:center;min-width:78px;
@@ -415,6 +423,7 @@ let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
 let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
+let foldedCardsAnimated = {}; // which seats have already had their fold-to-table fan animation fire THIS hand
 let payoutAnimated = {}; // which seats have already had their payout chip-shove-outward animation fire THIS hand
 let allInPilesCleared = false; // whether this hand's leftover all-in piles have been swept away yet, ahead of payout piles appearing
 // Reveal pacing: a purely display-side beat inserted between each step of
@@ -747,6 +756,7 @@ function startNewHand() {
   clearRevealTimer();
   clearVoluntaryTimer();
   allInAnimated = {};
+  foldedCardsAnimated = {};
   payoutAnimated = {};
   allInPilesCleared = false;
   Object.keys(preActions).forEach(seat => { if (preActions[seat]) setPreAction(seat, null); });
@@ -759,6 +769,7 @@ function startNewHand() {
   revealPaceGateTimer = null;
   revealPaceLastKey = null;
   document.querySelectorAll('.chipPile').forEach(el => el.remove());
+  document.querySelectorAll('.foldedCardsFan').forEach(el => el.remove());
   // Ranking is frozen for the whole hand, computed ONCE here from standings
   // as they were entering this hand (before blinds) — recomputing it live
   // during betting would mean the leaderboard/table flicker and reshuffle
@@ -1309,6 +1320,31 @@ function render() {
         });
       });
     }
+    // Folded cards: same halfway-to-center language as the all-in chip
+    // shove above (same felt real estate, same visual grammar) — but face
+    // down and fanned, mirroring a real player sliding their cards forward
+    // toward the muck the instant they fold. Fires for every fold alike
+    // (manual, Check/Fold, Sit Out) since h.foldedSeats doesn't distinguish
+    // how a seat got there. The seat's own name-column slot goes empty at
+    // the same moment (see cardsHtml below) — the cards have genuinely
+    // moved, not just gained a second copy on the table.
+    if (folded && !foldedCardsAnimated[seat]) {
+      foldedCardsAnimated[seat] = true;
+      const fan = document.createElement('div');
+      fan.className = 'foldedCardsFan';
+      fan.style.left = signX + '%';
+      fan.style.top = signY + '%';
+      fan.innerHTML = `<div class="fanCard" style="background-image:url(${burnCardBackUrl})"></div>
+        <div class="fanCard" style="background-image:url(${burnCardBackUrl})"></div>`;
+      ovalTable.appendChild(fan);
+      const foldHalfwayX = (signX + 50) / 2, foldHalfwayY = (signY + 50) / 2;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          fan.style.left = foldHalfwayX + '%';
+          fan.style.top = foldHalfwayY + '%';
+        });
+      });
+    }
     // Payout: chips shove OUTWARD from center to each winning seat, mirroring
     // the language of the all-in shove-to-center — same graphic, same
     // halfway resting point, just reversed direction. Fires once per
@@ -1363,7 +1399,7 @@ function render() {
     // entirely at certain moments).
     const cardsHtml = dealingInProgress
       ? cardBackHtml(dealtCardCount[seat] || 0)
-      : folded ? seatCardsHtml(h, seat)
+      : folded ? '' // cards moved to the table as a fanned pile (see foldedCardsFan above) — nothing left to show here
       : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : cardBackHtml(2);
 
     const sign = document.createElement('div');
