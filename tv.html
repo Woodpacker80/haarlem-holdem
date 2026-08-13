@@ -456,10 +456,11 @@ function playDealingAnimation(onComplete) {
   let step = 0;
   const totalSteps = order.length * 2; // two laps: everyone's first card, then everyone's second
   function dealNextCard() {
-    if (step >= totalSteps) { dealingInProgress = false; onComplete(); return; }
+    if (step >= totalSteps) { dealingInProgress = false; console.log('[deal-debug] animation complete, calling onComplete'); onComplete(); return; }
     const seat = order[step % order.length];
     dealtCardCount[seat] = Math.min(2, (dealtCardCount[seat] || 0) + 1);
     step++;
+    console.log(`[deal-debug] step=${step}/${totalSteps} dealt to seat=${seat}, dealtCardCount=`, JSON.stringify(dealtCardCount), 'dealingInProgress=', dealingInProgress);
     SFX.cardFlip();
     render();
     setTimeout(dealNextCard, DEAL_STEP_MS);
@@ -1195,7 +1196,6 @@ function render() {
   if (h.result && revealCaughtUp && !allInPilesCleared) {
     allInPilesCleared = true;
     const existingPiles = document.querySelectorAll('.chipPile');
-    console.log(`[chip-debug] SWEEP firing — removing ${existingPiles.length} existing .chipPile element(s)`);
     existingPiles.forEach(el => el.remove());
   }
   const ovalTable = document.getElementById('ovalTable');
@@ -1217,7 +1217,6 @@ function render() {
     const stillWaitingOnThisSeat = h.bettingRound && h.bettingRound.actingSeat === seat;
     if ((isAllIn || (anyAllInThisHand && !folded && !stillWaitingOnThisSeat)) && !allInAnimated[seat]) {
       allInAnimated[seat] = true;
-      console.log(`[chip-debug] ALL-IN pile CREATED for seat=${seat} (isAllIn=${isAllIn}) at render where result exists=${!!h.result}, revealCaughtUp=${revealCaughtUp}, allInPilesCleared=${allInPilesCleared}`);
       const pile = document.createElement('div');
       pile.className = 'chipPile';
       pile.style.left = signX + '%';
@@ -1247,7 +1246,6 @@ function render() {
     // payouts[seat] === 0 never gets a pile.
     if (h.result && revealCaughtUp && revealPaceGateOpen && (h.result.payouts[seat] || 0) > 0 && !payoutAnimated[seat]) {
       payoutAnimated[seat] = true;
-      console.log(`[chip-debug] PAYOUT pile CREATED for seat=${seat} (payout=${h.result.payouts[seat]}) — piles on screen right now: ${document.querySelectorAll('.chipPile').length}`);
       const payoutPile = document.createElement('div');
       payoutPile.className = 'chipPile';
       payoutPile.style.left = '50%';
@@ -1294,6 +1292,9 @@ function render() {
       ? (() => { const n = dealtCardCount[seat] || 0; return n === 0 ? '' : n === 1 ? '\uD83C\uDCA0' : '\uD83C\uDCA0 \uD83C\uDCA0'; })()
       : folded ? seatCardsHtml(h, seat)
       : (revealCaughtUp || showCardsEarly) ? seatCardsHtml(h, seat) : '\uD83C\uDCA0 \uD83C\uDCA0';
+    if (dealingInProgress) {
+      console.log(`[deal-debug] rendering seat=${seat} dealtCardCount[seat]=${dealtCardCount[seat]} cardsHtml="${cardsHtml}"`);
+    }
 
     const sign = document.createElement('div');
     sign.className = ['seatSign', folded ? 'folded' : '', isActing ? 'acting' : '', isAllIn ? 'allin' : ''].filter(Boolean).join(' ');
