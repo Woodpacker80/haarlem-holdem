@@ -120,16 +120,18 @@
 
   // Blinds actually going up — the one moment in the whole game worth a
   // genuinely distinct, attention-getting cue rather than another subtle
-  // one-shot. A bright bell strike (fundamental + a close overtone for
-  // shimmer), then — after a beat — a deep, long gong strike underneath it.
+  // one-shot. A clean two-note "ding-dong" attention chime, like the cue
+  // airports use right before a PA announcement — catches attention
+  // without being harsh — played twice. Deliberately much louder than
+  // every other cue in this file on purpose; a bell-then-gong version was
+  // tried first and reported as too quiet/lame to actually notice.
   function blindsUp() {
-    tone({ freq: 1046.5, duration: 0.5, type: 'sine', gain: 0.13 });
-    tone({ freq: 1318.5, duration: 0.45, type: 'sine', gain: 0.07 });
-    setTimeout(() => {
-      tone({ freq: 196, duration: 1.6, type: 'sine', gain: 0.14 });
-      tone({ freq: 233, duration: 1.4, type: 'triangle', gain: 0.07 });
-      noiseBurst({ duration: 0.5, filterFreq: 400, filterType: 'lowpass', gain: 0.05 });
-    }, 550);
+    const playChime = (delay) => {
+      tone({ freq: 880, duration: 0.35, type: 'sine', gain: 0.26, delay });
+      tone({ freq: 659.25, duration: 0.5, type: 'sine', gain: 0.24, delay: delay + 0.32 });
+    };
+    playChime(0);
+    playChime(1.1);
   }
 
   global.SFX = { cardFlip, win, fold, checkCall, raise, unlock, decisionWarning, blindsUp };

@@ -185,6 +185,20 @@ export function watchBlindLevel(cb) {
   onValue(roomRef('game/blindLevel'), (snap) => cb(snap.val() || null));
 }
 
+// Every device's own clock can drift from every other device's by a few
+// real seconds — consumer phones/TVs don't all stay perfectly NTP-synced.
+// A countdown computed as `sharedTimestamp - Date.now()` on each device
+// independently will disagree by however much those clocks disagree,
+// which is exactly why two phones showed a few seconds apart even though
+// both were reading the same nextLevelUpAt value. Firebase exposes
+// `.info/serverTimeOffset` specifically for this — the gap between THIS
+// device's clock and the server's — so `Date.now() + offset` gives a
+// corrected "true" time every device converges on, regardless of how far
+// off its own raw clock is.
+export function watchServerTimeOffset(cb) {
+  onValue(ref(db, '.info/serverTimeOffset'), (snap) => cb(snap.val() || 0));
+}
+
 // Check/Fold pre-selection: a phone can arm this while waiting for its
 // turn — the host resolves it automatically (still with a brief "acting"
 // beat, not an instant skip) the moment the turn actually arrives. Written

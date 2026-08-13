@@ -296,7 +296,7 @@
 <script src="sfx.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction, writeBlindLevel } from './game-sync.js';
+import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction, writeBlindLevel, watchServerTimeOffset } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 import { startHand, applyHandAction, applyRevealDecision, applyVoluntaryShowDecision } from './full-hand.js';
 
@@ -324,6 +324,8 @@ let gameConfig = null; // { dealerSeat, stacks, activeSeats, smallBlindAmount, b
 // moment startHand() was called, so blinds only ever actually change at the
 // start of the NEXT hand, never mid-hand.
 let blindLevelTimer = null;
+let serverTimeOffset = 0; // corrects this device's own clock drift — see watchServerTimeOffset in game-sync.js
+function correctedNow() { return Date.now() + serverTimeOffset; }
 let nextLevelUpAt = null; // timestamp (ms) the next level-up will fire — drives the live countdown badge
 let levelUpCountdownInterval = null; // ticks the countdown display once a second
 const BLIND_LEVEL_MINUTES = 12.5;
@@ -356,7 +358,7 @@ function updateBlindsBadge() {
 function updateLevelUpBadge() {
   const badge = document.getElementById('levelUpBadge');
   if (!badge || !gameConfig || nextLevelUpAt === null) { if (badge) badge.style.display = 'none'; return; }
-  const remainingMs = Math.max(0, nextLevelUpAt - Date.now());
+  const remainingMs = Math.max(0, nextLevelUpAt - correctedNow());
   const totalSeconds = Math.ceil(remainingMs / 1000);
   const mm = Math.floor(totalSeconds / 60);
   const ss = totalSeconds % 60;
@@ -369,7 +371,7 @@ function updateLevelUpBadge() {
 }
 function scheduleBlindLevelUp() {
   if (blindLevelTimer) clearTimeout(blindLevelTimer);
-  nextLevelUpAt = Date.now() + BLIND_LEVEL_MINUTES * 60 * 1000;
+  nextLevelUpAt = correctedNow() + BLIND_LEVEL_MINUTES * 60 * 1000;
   updateLevelUpBadge();
   syncBlindLevelToPhones();
   if (!levelUpCountdownInterval) levelUpCountdownInterval = setInterval(updateLevelUpBadge, 1000);
@@ -791,6 +793,7 @@ function ensureVoluntaryTimer() {
   voluntaryTimerHandle = setTimeout(() => applyVoluntaryReveal(pending.seat, 'muck'), 5000);
 }
 watchPreActions((armed) => { preActions = armed; });
+watchServerTimeOffset((offset) => { serverTimeOffset = offset; });
 
 watchActionQueue((key, request) => {
   clearActionQueueItem(key); // remove immediately so it's never reprocessed

@@ -92,7 +92,7 @@
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
-import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction, watchBlindLevel } from './game-sync.js';
+import { claimSeat, watchSeats, watchPublicState, watchOwnHoleCards, requestAction, releaseStaleLocalSeat, rememberLocalSeat, claimName, watchPlayerNames, watchPreActions, setPreAction, watchBlindLevel, watchServerTimeOffset } from './game-sync.js';
 import { getLegalActions } from './betting-round.js';
 
 const connEl = document.getElementById('conn');
@@ -109,6 +109,8 @@ let currentName = null;
 let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
 let preActions = {}; // seat -> 'checkFold' | null, kept live so the checkbox reflects the host clearing it (new street, or consumed)
 let blindLevelInfo = null; // {smallBlindAmount, bigBlindAmount, anteAmount, nextLevelUpAt} synced from the host — see game-sync.js
+let serverTimeOffset = 0; // corrects this device's own clock drift, same mechanism tv.html uses — see watchServerTimeOffset in game-sync.js
+function correctedNow() { return Date.now() + serverTimeOffset; }
 let blindTimerInterval = null; // ticks the local countdown text once a second, same shared timestamp the TV uses
 // Mirrors tv.html's rounding exactly, so the phone's own "next level"
 // preview always matches what the TV will actually apply — duplicated
@@ -125,7 +127,7 @@ function updateBlindTimerLine() {
   const el = document.getElementById('sr-blindtimer-line');
   if (!el) return;
   if (!blindLevelInfo || blindLevelInfo.nextLevelUpAt == null) { el.textContent = ''; return; }
-  const remainingMs = Math.max(0, blindLevelInfo.nextLevelUpAt - Date.now());
+  const remainingMs = Math.max(0, blindLevelInfo.nextLevelUpAt - correctedNow());
   const totalSeconds = Math.ceil(remainingMs / 1000);
   const mm = Math.floor(totalSeconds / 60);
   const ss = totalSeconds % 60;
@@ -498,6 +500,7 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
     const box = document.getElementById('checkFoldBox');
     if (box) box.checked = !!armed[mySeat]; // keep in sync if the host cleared it (new street, or just consumed)
   });
+  watchServerTimeOffset((offset) => { serverTimeOffset = offset; });
   watchBlindLevel((info) => {
     blindLevelInfo = info;
     if (info && info.nextLevelUpAt != null) {
