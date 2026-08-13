@@ -605,14 +605,19 @@ function render(state) {
   const myRevealTurn = state.pendingReveal && state.pendingReveal.order[state.pendingReveal.currentIndex] === mySeat;
   const myVoluntaryTurn = state.pendingVoluntaryShow && state.pendingVoluntaryShow.seat === mySeat && !state.pendingVoluntaryShow.decided;
 
-  // Check/Fold pre-selection: only offered while genuinely waiting on a
-  // betting decision that isn't yours yet — not during a reveal decision,
-  // not once the hand's over, not if you've already folded out of it. The
-  // host is what actually enforces re-arming per street (see game-sync.js);
-  // this only decides whether the checkbox is worth showing right now.
+  // Check/Fold and Sit Out pre-selection: shown whenever you haven't
+  // folded and it's not a reveal decision — DELIBERATELY including your
+  // own actual turn, not just before it. Originally hidden during your own
+  // turn (on the assumption you'd just use the real action buttons
+  // instead), but that created a real dead zone: the host still waits
+  // ~1s after your turn genuinely arrives before auto-resolving an armed
+  // checkbox, and that's exactly the moment you'd most want to reconsider
+  // — but the checkbox had already vanished from view by then, so there
+  // was never any way to actually uncheck it in time. Showing it
+  // continuously (alongside the real action buttons once it's genuinely
+  // your turn) closes that gap.
   const iAmFolded = state.foldedSeats.includes(mySeat);
-  const showPreAction = !state.result && !myRevealTurn && !myVoluntaryTurn && !iAmFolded
-    && state.actingSeat !== null && state.actingSeat !== mySeat;
+  const showPreAction = !state.result && !myRevealTurn && !myVoluntaryTurn && !iAmFolded && state.actingSeat !== null;
   const preActionArea = document.getElementById('preActionArea');
   if (showPreAction) {
     const armed = !!preActions[mySeat];
