@@ -81,7 +81,7 @@
 <div id="info"></div>
 <div id="myHand" style="text-align:center;">
   <div id="squeezeContainer" style="display:none;"><div id="squeezeHorizonLine"></div><div id="squeezeStackReadout"></div></div>
-  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;">The dealer is dealing the hand…</div>
+  <div id="handHint" style="color:#7d8299;font-size:12px;margin-top:6px;"></div>
 </div>
 <div id="preActionArea" style="text-align:center;"></div>
 <div id="actions"></div>
@@ -415,7 +415,16 @@ function adoptSeat(seat) {
         console.error('Hole card render failed:', e);
       }
     } else {
-      document.getElementById('handHint').textContent = 'The dealer is dealing the hand…';
+      // Only accurate once a game genuinely exists — before that, "Waiting
+      // for the host to start the game…" (set separately in render()'s
+      // no-state branch) already covers it correctly on its own. Showing
+      // "the dealer is dealing" before there's even a game to deal is
+      // exactly the mismatch Mark flagged from a screenshot; checking
+      // latestPublicState here (rather than just rewording the text)
+      // avoids trading that inaccuracy for the reverse one during a real
+      // active deal, which one static sentence can't describe correctly
+      // for both moments at once.
+      document.getElementById('handHint').textContent = latestPublicState ? 'The dealer is dealing the hand…' : '';
     }
     sqTargetPeel = 0; // new cards always start flat/closed, never auto-revealed
   });
