@@ -1338,7 +1338,7 @@ function render() {
     // "below, toward the board" — which naturally moves it AWAY from those
     // header badges instead of toward them.
     if (seat === h.dealerSeat) {
-      const DEALER_RADIUS = 30; // percentage points from center — 10 less than the seats' own 40
+      const DEALER_RADIUS = 26; // percentage points from center — nudged in from 30 per live feedback (was sitting a bit close to the seat sign)
       const dealerX = 50 + DEALER_RADIUS * Math.cos(theta);
       const dealerY = 50 + DEALER_RADIUS * Math.sin(theta);
       let btn = document.getElementById('dealerButton');
