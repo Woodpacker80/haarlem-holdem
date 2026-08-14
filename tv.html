@@ -35,7 +35,7 @@
     transform:translateX(-100%);transition:transform .3s;z-index:15;
     padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;}
   #leaderboardSidebar.open{transform:translateX(0);}
-  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:560px;
+  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:500px;
     background:rgba(10,15,30,0.94);border-left:2px solid #c9a84c;
     transform:translateX(100%);transition:transform .3s;z-index:15;
     box-sizing:border-box;display:flex;flex-direction:column;}
@@ -395,7 +395,11 @@ function updateBlindsBadge() {
   if (!badge || !gameConfig) return;
   const anteText = gameConfig.anteAmount > 0 ? ` • Ante ${gameConfig.anteAmount}` : '';
   badge.textContent = `Blinds: ${gameConfig.smallBlindAmount}/${gameConfig.bigBlindAmount}${anteText}`;
-  badge.style.display = 'block';
+  // Same guard as potBadge/rulesIconBtn below — this can run often during
+  // play (any blind-level change), so without checking whether the Rules
+  // panel is open, it would silently re-show the badge on top of the
+  // panel's own scrolled text a moment after being hidden.
+  badge.style.display = document.getElementById('rulesSidebar').classList.contains('open') ? 'none' : 'block';
 }
 // Separate from updateBlindsBadge (which just shows CURRENT values) — this
 // one previews what the NEXT level will be and counts down to it live,
@@ -1104,12 +1108,16 @@ document.getElementById('rulesIconBtn').addEventListener('click', () => {
   document.getElementById('rulesSidebar').classList.add('open');
   document.getElementById('potBadge').style.display = 'none';
   document.getElementById('rulesIconBtn').style.display = 'none';
+  document.getElementById('leaderboardBtn').style.display = 'none';
+  document.getElementById('blindsBadge').style.display = 'none';
 });
 document.getElementById('rulesSidebar').addEventListener('click', (e) => {
   if (e.target.id !== 'rulesCloseBtn') return;
   document.getElementById('rulesSidebar').classList.remove('open');
   document.getElementById('potBadge').style.display = 'block';
   document.getElementById('rulesIconBtn').style.display = 'block';
+  document.getElementById('leaderboardBtn').style.display = 'block';
+  document.getElementById('blindsBadge').style.display = 'block';
 });
 
 document.getElementById('quitGameBtn').addEventListener('click', async () => {
