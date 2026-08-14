@@ -1322,19 +1322,25 @@ function render() {
     const angleDeg = 90 + i * (360 / N); // seat index 0 starts at the bottom, going clockwise
     const theta = (angleDeg * Math.PI) / 180;
     const signX = 50 + 40 * Math.cos(theta), signY = 50 + 40 * Math.sin(theta);
-    // Dealer button: sits directly above the dealer's own seat sign, same
-    // X, a fixed small offset up in Y — NOT toward or away from table
-    // center (an earlier version tried "outward from center," which for a
-    // bottom seat like Mark's own meant "below/in front of," reported live
-    // as reading like it was part of the sign itself rather than a
-    // separate object on the felt). Persists across hands within the same
-    // game (unlike chip piles, which are cleared every hand) — only
-    // removed on a genuine Quit Game / Start New Game, so it visibly
-    // slides from dealer to dealer hand after hand rather than resetting.
+    // Dealer button: sits on its own fixed, smaller concentric ring inside
+    // the seats' own radius-40 circle — same angle (theta) as the dealer's
+    // own seat, just a fixed shorter distance from the table's center. This
+    // means it's always the exact same distance from center no matter which
+    // seat is dealer, sliding around that inner ring rather than being
+    // offset from each seat sign individually. Two earlier approaches were
+    // tried and abandoned: offsetting outward from each seat (read as part
+    // of the sign itself for a bottom seat) and a fixed vertical offset
+    // upward from each seat (broke down for a seat already near the top of
+    // the oval, drifting up into the Blinds/Ante badge and Leaderboard
+    // button that live just above the table). This one is direction-
+    // agnostic and needs no per-seat special-casing: moving toward center
+    // from a bottom seat reads as "above," and from a top seat reads as
+    // "below, toward the board" — which naturally moves it AWAY from those
+    // header badges instead of toward them.
     if (seat === h.dealerSeat) {
-      const DEALER_Y_OFFSET = 16; // percentage points of container height — bumped up from 12 per live feedback ("a nudge higher")
-      const dealerX = signX;
-      const dealerY = signY - DEALER_Y_OFFSET;
+      const DEALER_RADIUS = 30; // percentage points from center — 10 less than the seats' own 40
+      const dealerX = 50 + DEALER_RADIUS * Math.cos(theta);
+      const dealerY = 50 + DEALER_RADIUS * Math.sin(theta);
       let btn = document.getElementById('dealerButton');
       if (!btn) {
         // First appearance ever this game — place it directly, no
