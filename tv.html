@@ -26,7 +26,7 @@
   #startBtn:not(:disabled):hover{background:rgba(201,168,76,0.1);}
   #conn{font-size:11px;letter-spacing:.05em;text-transform:uppercase;}
   #conn.bad{color:#BE1622;} #conn.good{color:#3fbf6f;}
-  #jumbo{width:80vw;max-width:900px;border:2px solid #c9a84c;border-radius:16px;
+  #jumbo{box-sizing:border-box;border:2px solid #c9a84c;border-radius:16px;
     background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);padding:16px;}
   table{border-collapse:collapse;font-size:13px;width:100%;}
   th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #1c2338;}
@@ -776,6 +776,7 @@ function dealFirstHand() {
   document.getElementById('conn').style.display = 'none';
   document.getElementById('jumbo').style.display = 'block';
   requestAnimationFrame(positionPotBadge); // table isn't laid out until jumbo is actually visible
+  requestAnimationFrame(compensateScrollbarWidth); // content height just changed a lot — scrollbar presence may have too
 }
 
 // Anchors Pot's RIGHT edge to the game window's own measured right edge —
@@ -1773,6 +1774,31 @@ function render() {
 }
 
 ensureAuth();
+
+// Scrollbar-width compensation for #appRoot's horizontal centering. A
+// vertical scrollbar (when the page needs one) reserves real width on the
+// RIGHT side only, inside the padding box — browsers don't shrink the LEFT
+// side to match. That silently biases anything centered inside #appRoot to
+// sit slightly left of true-center, by roughly half the scrollbar's width.
+// Reported live on a specific TV's browser as the game area's gap flipping
+// sides across several earlier CSS-only attempts (`scrollbar-gutter` is the
+// standards fix for this but wasn't taking visible effect there, plausibly
+// unsupported on that browser/firmware). Measuring the real gap directly
+// via JS sidesteps needing to know or guess that browser's actual scrollbar
+// width at all — it's correct regardless of what that width turns out to be.
+function compensateScrollbarWidth() {
+  const appRoot = document.getElementById('appRoot');
+  if (!appRoot) return;
+  const barWidth = appRoot.offsetWidth - appRoot.clientWidth; // 0 if no scrollbar is actually showing right now
+  appRoot.style.paddingRight = Math.max(0, 24 - barWidth) + 'px';
+}
+window.addEventListener('load', compensateScrollbarWidth);
+window.addEventListener('resize', compensateScrollbarWidth);
+// Also re-check shortly after load — the scrollbar can appear/disappear
+// once real content (the lobby hero image, then later the game table)
+// finishes rendering, after the initial 'load' measurement already ran.
+setTimeout(compensateScrollbarWidth, 500);
+setTimeout(compensateScrollbarWidth, 1500);
 </script>
 </div>
 </body>
