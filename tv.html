@@ -35,12 +35,15 @@
     transform:translateX(-100%);transition:transform .3s;z-index:15;
     padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;}
   #leaderboardSidebar.open{transform:translateX(0);}
-  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:340px;
+  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:440px;
     background:rgba(10,15,30,0.94);border-left:2px solid #c9a84c;
     transform:translateX(100%);transition:transform .3s;z-index:15;
-    padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;
+    padding:0 20px 20px;overflow-y:auto;box-sizing:border-box;
     font-size:13px;line-height:1.7;color:#c9c4b0;}
   #rulesSidebar.open{transform:translateX(0);}
+  #rulesCloseBar{position:sticky;top:0;background:rgba(10,15,30,0.97);
+    padding:16px 0;margin:0 -20px 14px;text-align:right;
+    border-bottom:1px solid #3a3f52;z-index:2;}
   #rulesIconBtn{position:fixed;top:44px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
   .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
     border-bottom:1px solid #3a3f52;font-size:14px;}
@@ -1002,6 +1005,7 @@ document.getElementById('leaderboardBtn').addEventListener('click', () => {
 // content, built once here rather than regenerated every render() like the
 // Leaderboard rankings are.
 document.getElementById('rulesSidebar').innerHTML = `
+  <div id="rulesCloseBar"><button id="rulesCloseBtn" type="button" style="font-size:11px;padding:4px 10px;">✕ Close</button></div>
   <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Rules</div>
   <div>Each player gets 2 hole cards, face-down, visible only on their own phone. Betting happens before
     the flop, then after the flop (3 shared cards appear), the turn (1 more), and the river (1 more).
@@ -1082,7 +1086,23 @@ document.getElementById('rulesSidebar').innerHTML = `
   <div>Three.js &amp; Google Firebase</div>
 `;
 document.getElementById('rulesIconBtn').addEventListener('click', () => {
-  document.getElementById('rulesSidebar').classList.toggle('open');
+  // Hiding the pot badge and this button itself while the panel is open —
+  // both are position:fixed and would otherwise sit permanently on top of
+  // whatever text scrolls up underneath them (reported live). The dedicated
+  // close button inside the panel (sticky, not fixed — see #rulesCloseBar
+  // CSS — a plain `fixed` element loses to a transformed ancestor's own
+  // containing-block rules and scrolls away with the content, confirmed by
+  // testing it directly) is what makes it safe to hide this launcher button
+  // without leaving no way back.
+  document.getElementById('rulesSidebar').classList.add('open');
+  document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('rulesIconBtn').style.display = 'none';
+});
+document.getElementById('rulesSidebar').addEventListener('click', (e) => {
+  if (e.target.id !== 'rulesCloseBtn') return;
+  document.getElementById('rulesSidebar').classList.remove('open');
+  document.getElementById('potBadge').style.display = 'block';
+  document.getElementById('rulesIconBtn').style.display = 'block';
 });
 
 document.getElementById('quitGameBtn').addEventListener('click', async () => {
@@ -1348,8 +1368,13 @@ function render() {
   const potNow = Object.values(h.totalBets || {}).reduce((a, b) => a + b, 0)
                + Object.values(h.bettingRound ? h.bettingRound.bets : {}).reduce((a, b) => a + b, 0);
   potBadge.textContent = `Pot: ${potNow}`;
-  potBadge.style.display = 'block';
-  document.getElementById('rulesIconBtn').style.display = 'block';
+  // Both hidden while the Rules panel is open (see its own click handler) —
+  // this runs on every render, which happens constantly during play, so
+  // without this guard it would silently re-show both a moment after the
+  // panel opened, the instant anything else in the hand changed.
+  const rulesPanelOpen = document.getElementById('rulesSidebar').classList.contains('open');
+  potBadge.style.display = rulesPanelOpen ? 'none' : 'block';
+  document.getElementById('rulesIconBtn').style.display = rulesPanelOpen ? 'none' : 'block';
 
   // Leaderboard: ranked by CURRENT chip count, this session only.
   const ranked = frozenRankOrder;
