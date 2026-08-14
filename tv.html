@@ -35,6 +35,13 @@
     transform:translateX(-100%);transition:transform .3s;z-index:15;
     padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;}
   #leaderboardSidebar.open{transform:translateX(0);}
+  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:340px;
+    background:rgba(10,15,30,0.94);border-left:2px solid #c9a84c;
+    transform:translateX(100%);transition:transform .3s;z-index:15;
+    padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;
+    font-size:13px;line-height:1.7;color:#c9c4b0;}
+  #rulesSidebar.open{transform:translateX(0);}
+  #rulesIconBtn{position:fixed;top:44px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
   .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
     border-bottom:1px solid #3a3f52;font-size:14px;}
   .lbRank{color:#c9a84c;font-weight:700;width:22px;}
@@ -110,6 +117,7 @@
 <div id="potBadge" style="display:none;position:fixed;top:14px;color:#c9a84c;
   font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:2px solid #c9a84c;z-index:20;"></div>
+<button id="rulesIconBtn" type="button">Rules</button>
 <div id="blindsBadge" style="display:none;position:fixed;top:44px;left:50%;transform:translateX(-50%);
   color:#c9a84c;font-weight:600;font-size:13px;background:rgba(0,0,0,0.28);padding:5px 12px;
   border-radius:8px;border:1px solid #c9a84c;z-index:20;"></div>
@@ -310,6 +318,7 @@
   </div>
 
   <div id="leaderboardSidebar"></div>
+  <div id="rulesSidebar"></div>
 
   <div id="ovalTable">
     <div id="ovalRim"></div>
@@ -767,7 +776,9 @@ function positionPotBadge() {
   if (!table || !potBadge || document.getElementById('jumbo').style.display === 'none') return;
   const tableRect = table.getBoundingClientRect();
   const inwardPadding = 14; // extra room beyond the table's own measured edge
-  potBadge.style.right = (window.innerWidth - tableRect.right + inwardPadding) + 'px';
+  const rightOffset = window.innerWidth - tableRect.right + inwardPadding;
+  potBadge.style.right = rightOffset + 'px';
+  document.getElementById('rulesIconBtn').style.right = rightOffset + 'px'; // same anchor, sits just below the pot badge
 }
 window.addEventListener('resize', positionPotBadge);
 
@@ -983,6 +994,97 @@ document.getElementById('leaderboardBtn').addEventListener('click', () => {
   document.getElementById('leaderboardSidebar').classList.toggle('open');
 });
 
+// Rules panel: a copy of the lobby's "How to Play" content minus Setup and
+// Host Controls (not relevant mid-play), plus the Leaderboard blurb pulled
+// in from Host Controls since that one IS relevant mid-play. Deliberately a
+// duplicate, not a move — the lobby modal keeps its own full, untouched
+// copy for a new player reading it once before the game starts. Static
+// content, built once here rather than regenerated every render() like the
+// Leaderboard rankings are.
+document.getElementById('rulesSidebar').innerHTML = `
+  <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Rules</div>
+  <div>Each player gets 2 hole cards, face-down, visible only on their own phone. Betting happens before
+    the flop, then after the flop (3 shared cards appear), the turn (1 more), and the river (1 more).
+    Best 5-card hand wins.</div>
+  <div style="margin-top:8px;">To view your own cards, press and drag upward on them — like squeezing real
+    cards to peek at the corner. Let go and they lie flat again. Nobody else can ever see them.</div>
+
+  <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Check/Fold &amp; Sit Out</div>
+  <div>Two checkboxes sit below your action buttons, always available:</div>
+  <div style="margin-top:4px;"><b>Check/Fold</b> — arm this and the game checks for you if nobody's bet, or
+    folds if someone has, the instant your turn arrives. Re-arms fresh every street, so it can never act on
+    cards you haven't seen yet. Uncheck it any time before your turn resolves to act normally instead.</div>
+  <div style="margin-top:4px;"><b>Sit Out</b> — you're still dealt real cards every hand, but automatically
+    fold the moment it's your turn — no need to wait for anything before stepping away. Stays on until you
+    turn it off yourself, even across hands.</div>
+
+  <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Hand ranking, best to worst:</div>
+
+  <div style="margin-top:8px;"><b>1. Straight Flush</b> — 5 cards in a row, all the same suit<br>
+    <span class="card red">10♥</span><span class="card red">J♥</span><span class="card red">Q♥</span><span class="card red">K♥</span><span class="card red">A♥</span>
+    <span style="color:#7d8299;"> (a Royal Flush — the best possible straight flush)</span><br>
+    <span style="color:#7d8299;">Higher top card wins — a Jack-high straight flush beats a 9-high one.</span></div>
+
+  <div style="margin-top:10px;"><b>2. Four of a Kind</b> — 4 cards of the same rank<br>
+    <span class="card">7♠</span><span class="card red">7♥</span><span class="card red">7♦</span><span class="card">7♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">Higher rank wins — four Kings beats four Sevens.</span></div>
+
+  <div style="margin-top:10px;"><b>3. Full House</b> — 3 of a kind plus a pair<br>
+    <span class="card">K♠</span><span class="card red">K♥</span><span class="card red">K♦</span><span class="card">4♣</span><span class="card">4♠</span><br>
+    <span style="color:#7d8299;">The three-of-a-kind rank decides it first — Kings-full-of-Fours beats Nines-full-of-Aces.</span></div>
+
+  <div style="margin-top:10px;"><b>4. Flush</b> — 5 cards, all the same suit, not in order<br>
+    <span class="card">2♠</span><span class="card">6♠</span><span class="card">9♠</span><span class="card">J♠</span><span class="card">K♠</span><br>
+    <span style="color:#7d8299;">Compared card-by-card from highest down — the flush with the higher top card wins.</span></div>
+
+  <div style="margin-top:10px;"><b>5. Straight</b> — 5 cards in a row, mixed suits<br>
+    <span class="card red">4♥</span><span class="card">5♠</span><span class="card red">6♦</span><span class="card">7♣</span><span class="card">8♠</span><br>
+    <span style="color:#7d8299;">Higher top card wins — an 8-high straight beats a 7-high one.</span></div>
+
+  <div style="margin-top:10px;"><b>6. Three of a Kind</b> — 3 cards of the same rank<br>
+    <span class="card">9♠</span><span class="card red">9♥</span><span class="card red">9♦</span><span class="card">3♣</span><span class="card">K♠</span><br>
+    <span style="color:#7d8299;">Higher rank wins — three Nines beats three Fours.</span></div>
+
+  <div style="margin-top:10px;"><b>7. Two Pair</b> — 2 separate pairs<br>
+    <span class="card">J♠</span><span class="card red">J♥</span><span class="card red">5♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">The higher pair decides it first, then the lower pair.</span></div>
+
+  <div style="margin-top:10px;"><b>8. Pair</b> — 2 cards of the same rank<br>
+    <span class="card">Q♠</span><span class="card red">Q♥</span><span class="card red">7♦</span><span class="card">4♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">Higher pair wins — a pair of Queens beats a pair of Sevens.</span></div>
+
+  <div style="margin-top:10px;margin-bottom:14px;"><b>9. High Card</b> — no combination, highest single card wins<br>
+    <span class="card">A♠</span><span class="card red">K♥</span><span class="card red">9♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">If the top card ties, the next-highest card decides it, and so on.</span></div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Show or Muck</div>
+  <div>At showdown, you don't always have to reveal your cards. The player who bet or raised last has to
+    show first — everyone after that gets to choose Show or Muck. Mucking hides your hand for good — even
+    if it would have won, nobody ever sees it. Your secrets are safe, win or lose.</div>
+  <div style="margin-top:6px;color:#7d8299;">One exception: if a hand goes all the way to showdown with an
+    all-in on the table, everyone shows — no mucking, per standard rules.</div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Blinds &amp; Antes</div>
+  <div>Small and big blinds — plus a small ante every player puts in — increase automatically as the game
+    goes on, with a countdown shown on the TV and on your phone. This keeps the game moving and forces
+    decisions as stacks get tighter, standard for any real poker tournament.</div>
+
+  <div style="margin-top:6px;"><b>Leaderboard</b> — ranks every player by their current chip count, for this
+    session only.</div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:16px 0 6px;">About Haarlem Hold'em</div>
+  <div>Designed and built in Haarlem, the Netherlands, 2026.</div>
+  <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">The Team</div>
+  <div>Mark Oddens — Design &amp; Direction</div>
+  <div>Claude (Anthropic) — Development</div>
+  <div>Gemini (Google) — Technical Review</div>
+  <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Powered By</div>
+  <div>Three.js &amp; Google Firebase</div>
+`;
+document.getElementById('rulesIconBtn').addEventListener('click', () => {
+  document.getElementById('rulesSidebar').classList.toggle('open');
+});
+
 document.getElementById('quitGameBtn').addEventListener('click', async () => {
   handState = null;
   gameConfig = null;
@@ -1004,6 +1106,8 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('rulesIconBtn').style.display = 'none';
+  document.getElementById('rulesSidebar').classList.remove('open');
   document.getElementById('leaderboardSidebar').innerHTML = '';
   document.getElementById('dealerButton')?.remove();
 });
@@ -1041,6 +1145,8 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
+  document.getElementById('rulesIconBtn').style.display = 'none';
+  document.getElementById('rulesSidebar').classList.remove('open');
   document.getElementById('leaderboardSidebar').innerHTML = '';
   document.getElementById('dealerButton')?.remove();
 });
@@ -1243,6 +1349,7 @@ function render() {
                + Object.values(h.bettingRound ? h.bettingRound.bets : {}).reduce((a, b) => a + b, 0);
   potBadge.textContent = `Pot: ${potNow}`;
   potBadge.style.display = 'block';
+  document.getElementById('rulesIconBtn').style.display = 'block';
 
   // Leaderboard: ranked by CURRENT chip count, this session only.
   const ranked = frozenRankOrder;
