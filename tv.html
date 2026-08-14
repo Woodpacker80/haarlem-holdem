@@ -35,15 +35,15 @@
     transform:translateX(-100%);transition:transform .3s;z-index:15;
     padding:70px 20px 20px;overflow-y:auto;box-sizing:border-box;}
   #leaderboardSidebar.open{transform:translateX(0);}
-  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:440px;
+  #rulesSidebar{position:fixed;top:0;bottom:0;right:0;width:560px;
     background:rgba(10,15,30,0.94);border-left:2px solid #c9a84c;
     transform:translateX(100%);transition:transform .3s;z-index:15;
-    padding:0 20px 20px;overflow-y:auto;box-sizing:border-box;
-    font-size:13px;line-height:1.7;color:#c9c4b0;}
+    box-sizing:border-box;display:flex;flex-direction:column;}
   #rulesSidebar.open{transform:translateX(0);}
-  #rulesCloseBar{position:sticky;top:0;background:rgba(10,15,30,0.97);
-    padding:16px 0;margin:0 -20px 14px;text-align:right;
-    border-bottom:1px solid #3a3f52;z-index:2;}
+  #rulesCloseBar{flex:0 0 auto;padding:16px 20px;text-align:right;
+    border-bottom:1px solid #3a3f52;background:rgba(10,15,30,0.97);}
+  #rulesScrollArea{flex:1 1 auto;overflow-y:auto;padding:0 20px 20px;
+    box-sizing:border-box;font-size:13px;line-height:1.7;color:#c9c4b0;}
   #rulesIconBtn{position:fixed;top:44px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
   .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
     border-bottom:1px solid #3a3f52;font-size:14px;}
@@ -1006,6 +1006,7 @@ document.getElementById('leaderboardBtn').addEventListener('click', () => {
 // Leaderboard rankings are.
 document.getElementById('rulesSidebar').innerHTML = `
   <div id="rulesCloseBar"><button id="rulesCloseBtn" type="button" style="font-size:11px;padding:4px 10px;">✕ Close</button></div>
+  <div id="rulesScrollArea">
   <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Rules</div>
   <div>Each player gets 2 hole cards, face-down, visible only on their own phone. Betting happens before
     the flop, then after the flop (3 shared cards appear), the turn (1 more), and the river (1 more).
@@ -1084,16 +1085,22 @@ document.getElementById('rulesSidebar').innerHTML = `
   <div>Gemini (Google) — Technical Review</div>
   <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Powered By</div>
   <div>Three.js &amp; Google Firebase</div>
+  </div>
 `;
 document.getElementById('rulesIconBtn').addEventListener('click', () => {
   // Hiding the pot badge and this button itself while the panel is open —
   // both are position:fixed and would otherwise sit permanently on top of
   // whatever text scrolls up underneath them (reported live). The dedicated
-  // close button inside the panel (sticky, not fixed — see #rulesCloseBar
-  // CSS — a plain `fixed` element loses to a transformed ancestor's own
-  // containing-block rules and scrolls away with the content, confirmed by
-  // testing it directly) is what makes it safe to hide this launcher button
-  // without leaving no way back.
+  // close button inside the panel lives in its own non-scrolling header row
+  // (#rulesCloseBar, a flex sibling of the actual scrolling content in
+  // #rulesScrollArea — not inside the scroll area itself, and not relying
+  // on `sticky` or `fixed` tricks at all), so hiding this launcher button is
+  // safe without leaving no way back. An earlier `position:sticky` version
+  // of the close bar was reported live to flicker/disappear briefly on
+  // scroll-direction changes (likely a compositing quirk on the TV's own
+  // hardware, not reproducible in a desktop browser test) — restructured
+  // to avoid scroll-linked positioning for this element entirely rather
+  // than chase that further.
   document.getElementById('rulesSidebar').classList.add('open');
   document.getElementById('potBadge').style.display = 'none';
   document.getElementById('rulesIconBtn').style.display = 'none';
