@@ -45,7 +45,8 @@
     border-bottom:1px solid #3a3f52;background:rgba(10,15,30,0.97);}
   #rulesScrollArea{flex:1 1 auto;overflow-y:auto;padding:0 20px 20px;
     box-sizing:border-box;font-size:12px;line-height:1.65;color:#c9c4b0;}
-  #rulesIconBtn{position:fixed;top:44px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
+  #rulesIconBtn{position:fixed;top:54px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
+  .badgeDark{background:rgba(0,0,0,0.28);}
   .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
     border-bottom:1px solid #3a3f52;font-size:14px;}
   .lbRank{color:#c9a84c;font-weight:700;width:22px;}
@@ -111,7 +112,7 @@
 </head>
 <body>
 <div id="appRoot">
-<button id="quitGameBtn" style="position:fixed;top:14px;left:28px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
+<button id="quitGameBtn" class="badgeDark" style="position:fixed;top:14px;left:28px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
 <div id="levelUpBadge" style="display:none;position:fixed;top:14px;z-index:20;color:#c9a84c;
   font-weight:600;font-size:12px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:1px solid #c9a84c;white-space:nowrap;"></div>
@@ -122,7 +123,7 @@
 <div id="potBadge" style="display:none;position:fixed;top:14px;color:#c9a84c;
   font-weight:600;font-size:15px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:2px solid #c9a84c;z-index:20;"></div>
-<button id="rulesIconBtn" type="button">Rules</button>
+<button id="rulesIconBtn" type="button" class="badgeDark">Rules</button>
 <div id="blindsBadge" style="display:none;position:fixed;top:44px;left:50%;transform:translateX(-50%);
   color:#c9a84c;font-weight:600;font-size:13px;background:rgba(0,0,0,0.28);padding:5px 12px;
   border-radius:8px;border:1px solid #c9a84c;z-index:20;"></div>
@@ -319,7 +320,7 @@
 
 <div id="jumbo" style="display:none;width:100%;align-self:flex-start;position:relative;">
   <div style="position:fixed;top:14px;left:50%;transform:translate(calc(-50% - 10px));z-index:20;text-align:center;">
-    <button id="leaderboardBtn" type="button" style="font-size:11px;padding:6px 14px;">Leaderboard</button>
+    <button id="leaderboardBtn" type="button" class="badgeDark" style="font-size:11px;padding:6px 14px;">Leaderboard</button>
   </div>
 
   <div id="leaderboardSidebar"></div>
@@ -784,13 +785,18 @@ function dealFirstHand() {
 // matter how the screen crops or scales. A big pot number then grows the
 // badge LEFTWARD (safely inward, toward Leaderboard), never further
 // toward the actual screen edge.
+// Uses #jumbo (the actual game-window border) rather than the inner oval
+// table, so the badge sits flush with the right border the same way
+// Quit Game sits flush with the left border — the oval table itself is
+// inset further in from #jumbo's own edge, which previously made Pot/Rules
+// look pulled in from the right border more than Quit Game is from the left.
 function positionPotBadge() {
-  const table = document.getElementById('ovalTable');
+  const jumbo = document.getElementById('jumbo');
   const potBadge = document.getElementById('potBadge');
-  if (!table || !potBadge || document.getElementById('jumbo').style.display === 'none') return;
-  const tableRect = table.getBoundingClientRect();
-  const inwardPadding = 14; // extra room beyond the table's own measured edge
-  const rightOffset = window.innerWidth - tableRect.right + inwardPadding;
+  if (!jumbo || !potBadge || jumbo.style.display === 'none') return;
+  const jumboRect = jumbo.getBoundingClientRect();
+  const inwardPadding = 4; // small breathing room from the border itself, matching Quit Game's left:28px
+  const rightOffset = window.innerWidth - jumboRect.right + inwardPadding;
   potBadge.style.right = rightOffset + 'px';
   document.getElementById('rulesIconBtn').style.right = rightOffset + 'px'; // same anchor, sits just below the pot badge
 }
