@@ -1322,25 +1322,34 @@ function render() {
     const angleDeg = 90 + i * (360 / N); // seat index 0 starts at the bottom, going clockwise
     const theta = (angleDeg * Math.PI) / 180;
     const signX = 50 + 40 * Math.cos(theta), signY = 50 + 40 * Math.sin(theta);
-    // Dealer button: sits on its own fixed, smaller concentric ring inside
-    // the seats' own radius-40 circle — same angle (theta) as the dealer's
-    // own seat, just a fixed shorter distance from the table's center. This
-    // means it's always the exact same distance from center no matter which
-    // seat is dealer, sliding around that inner ring rather than being
-    // offset from each seat sign individually. Two earlier approaches were
-    // tried and abandoned: offsetting outward from each seat (read as part
-    // of the sign itself for a bottom seat) and a fixed vertical offset
-    // upward from each seat (broke down for a seat already near the top of
-    // the oval, drifting up into the Blinds/Ante badge and Leaderboard
-    // button that live just above the table). This one is direction-
-    // agnostic and needs no per-seat special-casing: moving toward center
-    // from a bottom seat reads as "above," and from a top seat reads as
-    // "below, toward the board" — which naturally moves it AWAY from those
-    // header badges instead of toward them.
+    // Dealer button: moves a FIXED PIXEL distance from the dealer's own
+    // seat sign toward the table's center — same angle (theta) as the
+    // seat, same real-world gap regardless of which seat is dealer. Uses
+    // actual pixel measurements (via getBoundingClientRect), NOT a second,
+    // smaller percentage-radius circle — the oval container is much wider
+    // than tall (96% width, fixed 380px height), so a percentage-point
+    // means far more pixels horizontally than vertically. A smaller-radius
+    // approach using the same percentage math for every angle was tried and
+    // measured to produce a correct ~57px gap for a top/bottom seat but a
+    // wildly larger ~259px gap for a left/right seat — never actually
+    // noticed until asked "how would this look with 4 players," since
+    // testing so far only ever had a top and a bottom seat (heads-up). Two
+    // earlier approaches were also tried and abandoned before that: offset
+    // outward from each seat (read as part of the sign itself for a bottom
+    // seat) and a fixed vertical offset upward from each seat (broke down
+    // for a seat near the top, drifting up into the Blinds/Ante badge and
+    // Leaderboard button above the table).
     if (seat === h.dealerSeat) {
-      const DEALER_RADIUS = 25; // percentage points from center — a very small further nudge in from 26 per live feedback
-      const dealerX = 50 + DEALER_RADIUS * Math.cos(theta);
-      const dealerY = 50 + DEALER_RADIUS * Math.sin(theta);
+      const DEALER_PIXEL_GAP = 57; // matches the already-confirmed-good top/bottom center-to-center distance at the previous DEALER_RADIUS=25
+      const tableRect = ovalTable.getBoundingClientRect();
+      const seatPxX = tableRect.width * signX / 100, seatPxY = tableRect.height * signY / 100;
+      const centerPxX = tableRect.width / 2, centerPxY = tableRect.height / 2;
+      const dirPxX = centerPxX - seatPxX, dirPxY = centerPxY - seatPxY;
+      const dirPxLen = Math.hypot(dirPxX, dirPxY) || 1;
+      const dealerPxX = seatPxX + (dirPxX / dirPxLen) * DEALER_PIXEL_GAP;
+      const dealerPxY = seatPxY + (dirPxY / dirPxLen) * DEALER_PIXEL_GAP;
+      const dealerX = dealerPxX / tableRect.width * 100;
+      const dealerY = dealerPxY / tableRect.height * 100;
       let btn = document.getElementById('dealerButton');
       if (!btn) {
         // First appearance ever this game — place it directly, no
