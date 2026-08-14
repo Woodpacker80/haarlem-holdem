@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen Diagnostic</title>
+<style>
+  html,body{margin:0;padding:0;background:#0F2A55;color:#fff;font-family:monospace;
+    font-size:22px;line-height:1.6;}
+  #edgeTop,#edgeBottom{position:fixed;left:0;right:0;height:6px;background:#ff3b30;z-index:99;}
+  #edgeTop{top:0;} #edgeBottom{bottom:0;}
+  #edgeLeft,#edgeRight{position:fixed;top:0;bottom:0;width:6px;background:#ff3b30;z-index:99;}
+  #edgeLeft{left:0;} #edgeRight{right:0;}
+  #content{padding:24px 40px;}
+  .num{color:#ffd60a;font-weight:bold;}
+  h1{font-size:26px;color:#ffd60a;margin-top:0;}
+</style>
+</head>
+<body>
+<div id="edgeTop"></div>
+<div id="edgeBottom"></div>
+<div id="edgeLeft"></div>
+<div id="edgeRight"></div>
+<div id="content">
+  <h1>Screen Diagnostic</h1>
+  <div>The 4 red bars should touch all 4 edges of the TV screen exactly.</div>
+  <div>If any red bar has a gap next to it, that tells us exactly which side is off.</div>
+  <hr>
+  <div id="readout">measuring…</div>
+</div>
+<script>
+function update() {
+  const vv = window.visualViewport;
+  const lines = [
+    'window.innerWidth: <span class="num">' + window.innerWidth + '</span>',
+    'window.innerHeight: <span class="num">' + window.innerHeight + '</span>',
+    'document.documentElement.clientWidth: <span class="num">' + document.documentElement.clientWidth + '</span>',
+    'document.documentElement.clientHeight: <span class="num">' + document.documentElement.clientHeight + '</span>',
+    'devicePixelRatio: <span class="num">' + window.devicePixelRatio + '</span>',
+    'screen.width x height: <span class="num">' + screen.width + ' x ' + screen.height + '</span>',
+    vv ? ('visualViewport.width x height: <span class="num">' + vv.width + ' x ' + vv.height + '</span>') : 'visualViewport: not supported',
+    'scrollbar width estimate (innerWidth - clientWidth): <span class="num">' + (window.innerWidth - document.documentElement.clientWidth) + '</span>',
+  ];
+  document.getElementById('readout').innerHTML = lines.join('<br>');
+}
+update();
+window.addEventListener('resize', update);
+setInterval(update, 1000);
+</script>
+</body></html>
