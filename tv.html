@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
 <style>
-  html{overflow:hidden;margin:0;padding:0;height:100%;width:100%;}
-  body{margin:0;padding:0;min-height:100%;overflow-x:hidden;overflow-y:auto;width:100%;background:#0F2A55;color:#e9e2cf;
-    font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
-    align-items:center;justify-content:flex-start;gap:8px;padding:10px 24px 40px;}
+  html,body{margin:0;padding:0;background:#0F2A55;color:#e9e2cf;font-family:'Montserrat',-apple-system,sans-serif;}
+  #appRoot{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    gap:8px;padding:10px 24px 40px;box-sizing:border-box;}
   h1{font-family:'Cinzel',serif;font-size:20px;letter-spacing:.03em;color:#c9a84c;margin:0;font-weight:600;}
   .sub{font-size:12px;color:#7d8299;text-align:center;max-width:500px;line-height:1.5;margin:0;}
   label{font-size:12px;color:#7d8299;margin-right:6px;}
@@ -110,6 +110,7 @@
 </style>
 </head>
 <body>
+<div id="appRoot">
 <button id="quitGameBtn" style="position:fixed;top:14px;left:28px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
 <div id="levelUpBadge" style="display:none;position:fixed;top:14px;z-index:20;color:#c9a84c;
   font-weight:600;font-size:12px;background:rgba(0,0,0,0.28);padding:6px 14px;
@@ -1773,5 +1774,6 @@ function render() {
 
 ensureAuth();
 </script>
+</div>
 </body>
 </html>
