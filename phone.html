@@ -45,17 +45,15 @@
   button:hover{background:rgba(201,168,76,0.15);}
   button.fold{border-color:#BE1622;color:#BE1622;}
 
-  /* Pot readout + Rules icon (phone) — fits phone's OWN existing visual
-     language instead of copying tv.html's boxed "chip badge" look, which
-     doesn't match anything else here: #seatBadge/#conn are plain colored
-     text with no box at all, and every real button on this screen (Fold,
-     actions, Quit) is transparent-with-border, never filled. Pot is a
-     passive readout, so it's styled like seatBadge/conn — plain text, no
-     card. Rules is a real button, so it just uses the native `button`
-     style already used everywhere else (only position/size overridden). */
-  #potBadgePhone{display:none;position:fixed;top:12px;right:14px;z-index:20;
-    color:#c9a84c;font-weight:600;font-size:13px;white-space:nowrap;}
-  #rulesIconBtnPhone{display:none;position:fixed;top:34px;right:14px;z-index:20;
+  /* Pot readout + Rules icon (phone). Rules is a real button, using the
+     native `button` style already used everywhere else on this screen
+     (transparent, gold border — only position/size overridden). Pot got a
+     matching gold rectangle too per Mark's explicit request — a deliberate
+     step back from the very-plain seatBadge/conn look it started with. */
+  #potBadgePhone{display:none;position:fixed;top:10px;right:14px;z-index:20;
+    color:#c9a84c;font-weight:600;font-size:13px;white-space:nowrap;
+    border:2px solid #c9a84c;border-radius:8px;padding:5px 12px;}
+  #rulesIconBtnPhone{display:none;position:fixed;top:44px;right:14px;z-index:20;
     font-size:10px;padding:5px 12px;}
   #rulesSidebarPhone{position:fixed;inset:0;z-index:250;background:#0d1626;
     display:none;flex-direction:column;overflow-y:auto;padding:20px;
