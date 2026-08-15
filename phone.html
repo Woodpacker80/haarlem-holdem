@@ -170,12 +170,15 @@
 </head>
 <body>
 <div id="headerBlock" style="display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding-right:90px;box-sizing:border-box;">
-  <!-- padding-right reserves the same column the Pot badge/Rules icon sit
-       in (fixed, top-right, ~90px wide) — without it, a longer welcome
-       line (name included) runs underneath them once a game starts and
-       they show, confirmed via an actual render test before shipping. -->
+  padding:0 90px;box-sizing:border-box;">
+  <!-- Symmetric padding, not padding-RIGHT only — a right-only pad clears
+       the corner badges but shifts the whole centering axis left, which is
+       exactly why a wrapped second line (the name) looked stranded on the
+       left instead of centered — confirmed via Mark's own screenshot.
+       Matching padding on the left (nothing to clear there) keeps the
+       visual center anchored at the true screen center instead. -->
   <h1 id="welcomeLine">Welcome to Haarlem Hold'em</h1>
+  <div id="playerNameLine" style="display:none;color:#c9a84c;font-weight:600;font-size:15px;"></div>
   <div id="seatBadge">joining…</div>
   <div id="conn">connecting…</div>
 </div>
@@ -716,7 +719,9 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   const name = nameInput.value.trim();
   if (!name) { nameInput.focus(); return; } // no empty names allowed past this point
   currentName = name;
-  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em, ${name}`;
+  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em`;
+  document.getElementById('playerNameLine').textContent = name;
+  document.getElementById('playerNameLine').style.display = 'block';
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
   resizeSqRenderer(); // #squeezeContainer was 0×0 while gameArea was hidden, so the very
