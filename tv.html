@@ -1678,15 +1678,17 @@ function render() {
   // manual "Deal Next Hand" click for exactly this one case. Mark's report:
   // requiring that click before Final Standings/confetti even appear made
   // the whole moment "fall flat" — the fix is to never show the button for
-  // this specific hand and auto-advance instead, once, after a brief pause
-  // so the final pot/result is still visible for a beat first.
+  // this specific hand and auto-advance instead, once, after a pause long
+  // enough to actually take the last hand in (started at 2.5s, doubled
+  // twice to 10s per Mark's testing feedback — worth trimming down later
+  // once it's clear how it actually feels live).
   const isGameEndingHand = handComplete
     && gameConfig.activeSeats.filter(s => h.stacks[s] > 0).length < 2;
   if (isGameEndingHand && !autoAdvanceTriggered) {
     autoAdvanceTriggered = true;
     setTimeout(() => {
       if (!gameOverInfo && gameConfig) dealNextHand();
-    }, 2500);
+    }, 10000);
   }
   document.getElementById('statusLine').textContent = h.result
     ? 'Hand complete'
