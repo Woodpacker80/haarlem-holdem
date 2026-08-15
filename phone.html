@@ -58,6 +58,66 @@
     background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);
     padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;
     -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+
+  /* Final Standings (phone) — mirrors tv.html's box at phone width */
+  #finalStandingsBox{width:100%;max-width:300px;background:rgba(0,0,0,0.35);
+    border:2px solid #c9a84c;border-radius:14px;overflow:hidden;
+    box-shadow:0 0 28px rgba(201,168,76,0.2);}
+  #finalStandingsBox .fs-header{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
+    padding:10px 16px;text-align:center;font-weight:700;font-size:13px;
+    letter-spacing:3px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
+  #finalStandingsBox .fs-row{display:flex;align-items:center;gap:12px;
+    padding:9px 16px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  #finalStandingsBox .fs-row:last-child{border-bottom:none;}
+  #finalStandingsBox .fs-row.fs-1st{background:linear-gradient(90deg,rgba(245,216,120,0.16),rgba(201,168,76,0.05));}
+  #finalStandingsBox .fs-medal{font-size:18px;min-width:26px;text-align:center;}
+  #finalStandingsBox .fs-name{flex:1;font-size:14px;font-weight:600;color:#e9e2cf;text-align:left;}
+  #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
+  #finalStandingsBox .fs-quit{display:block;width:calc(100% - 32px);margin:14px 16px 16px;
+    font-size:12px;padding:9px 0;}
+
+  /* Confetti — same particle approach as tv.html, scoped to the phone's own viewport */
+  .fsParticle{position:fixed;width:7px;height:7px;border-radius:50%;pointer-events:none;
+    top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;
+    animation:fsParticleFly var(--dur,2s) var(--delay,0s) ease-out forwards;}
+  @keyframes fsParticleFly{0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
+    60%{opacity:0.8;}
+    100%{transform:translate(calc(-50% + var(--tx,0px)),calc(-50% + var(--ty,0px))) scale(0.3);opacity:0;}}
+
+  /* Credits screen (phone) — same content/behavior as tv.html's, only ever
+     shown via Final Standings' own Quit button. */
+  #creditsScreen{position:fixed;inset:0;z-index:300;display:none;
+    align-items:center;justify-content:center;overflow:hidden;background:#000;}
+  #creditsScreen.show{display:flex;}
+  .credits-beams{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  .beam{position:absolute;top:0;width:3px;height:75%;border-radius:0 0 3px 3px;opacity:0;
+    transform-origin:top center;animation:beamSweep 4s ease-in-out infinite;filter:blur(2px);}
+  .beam-1{left:20%;background:linear-gradient(to bottom,#ffff00,transparent);animation-delay:0s;}
+  .beam-2{left:38%;background:linear-gradient(to bottom,#00ff88,transparent);animation-delay:0.8s;}
+  .beam-3{left:58%;background:linear-gradient(to bottom,#ff2d78,transparent);animation-delay:1.6s;}
+  .beam-4{left:78%;background:linear-gradient(to bottom,#b44dff,transparent);animation-delay:2.4s;}
+  .beam-glow{position:absolute;top:0;width:60px;height:70%;border-radius:0 0 50% 50%;opacity:0;
+    transform-origin:top center;animation:beamSweep 4s ease-in-out infinite;filter:blur(18px);}
+  .beam-glow-1{left:calc(20% - 28px);background:radial-gradient(ellipse at top,rgba(255,255,0,0.4),transparent 70%);animation-delay:0s;}
+  .beam-glow-2{left:calc(38% - 28px);background:radial-gradient(ellipse at top,rgba(0,255,136,0.4),transparent 70%);animation-delay:0.8s;}
+  .beam-glow-3{left:calc(58% - 28px);background:radial-gradient(ellipse at top,rgba(255,45,120,0.4),transparent 70%);animation-delay:1.6s;}
+  .beam-glow-4{left:calc(78% - 28px);background:radial-gradient(ellipse at top,rgba(180,77,255,0.4),transparent 70%);animation-delay:2.4s;}
+  @keyframes beamSweep{0%{opacity:0;transform:rotate(-18deg);}15%{opacity:1;}
+    45%{opacity:0.85;transform:rotate(18deg);}65%{opacity:1;transform:rotate(-8deg);}
+    85%{opacity:0.6;transform:rotate(12deg);}100%{opacity:0;transform:rotate(-18deg);}}
+  .credits-content{position:relative;z-index:10;display:flex;flex-direction:column;
+    align-items:center;gap:22px;padding:32px 24px;text-align:center;
+    animation:creditsReveal 0.8s cubic-bezier(0.16,1,0.3,1) both;}
+  @keyframes creditsReveal{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .credits-thank{font-size:15px;font-weight:700;color:#e9c976;letter-spacing:1.5px;line-height:1.5;}
+  .credits-divider{width:50px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);}
+  .credits-logo{font-size:24px;font-weight:900;letter-spacing:3px;color:#c9a84c;
+    filter:drop-shadow(0 0 16px rgba(201,168,76,0.5));}
+  .credits-block{display:flex;flex-direction:column;gap:4px;}
+  .credits-role{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:#7d8299;}
+  .credits-name{font-size:14px;font-weight:700;color:#e9c976;letter-spacing:0.5px;}
+  .credits-sub{font-size:10px;color:#c9c4b0;letter-spacing:1.5px;margin-top:1px;}
+  .credits-poweredby{font-size:9px;color:#7d8299;letter-spacing:1.5px;margin-top:4px;text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -87,8 +147,42 @@
 <div id="preActionArea" style="text-align:center;width:100%;"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
+<div id="finalStandingsArea" style="width:100%;display:none;"></div>
 </div>
 <div id="debug" style="font-size:9px;color:#3a3f52;max-width:340px;word-break:break-all;margin-top:20px;"></div>
+
+<!-- Credits screen — only shown via Final Standings' own Quit button here,
+     never on any other reset path. -->
+<div id="creditsScreen">
+  <div class="credits-beams">
+    <div class="beam beam-1"></div><div class="beam beam-2"></div>
+    <div class="beam beam-3"></div><div class="beam beam-4"></div>
+    <div class="beam-glow beam-glow-1"></div><div class="beam-glow beam-glow-2"></div>
+    <div class="beam-glow beam-glow-3"></div><div class="beam-glow beam-glow-4"></div>
+  </div>
+  <div class="credits-content">
+    <div class="credits-thank">Thank you for playing our game</div>
+    <div class="credits-divider"></div>
+    <div class="credits-logo">HAARLEM HOLD'EM</div>
+    <div class="credits-divider"></div>
+    <div class="credits-block">
+      <div class="credits-role">Game Designer &amp; Creative Director</div>
+      <div class="credits-name">M.H. Oddens</div>
+    </div>
+    <div class="credits-block">
+      <div class="credits-role">Programmer &amp; Co-Designer</div>
+      <div class="credits-name">Claude AI</div>
+      <div class="credits-sub">Anthropic</div>
+    </div>
+    <div class="credits-block">
+      <div class="credits-role">Technical Reviewer</div>
+      <div class="credits-name">Gemini AI</div>
+      <div class="credits-sub">Google</div>
+    </div>
+    <div class="credits-divider"></div>
+    <div class="credits-poweredby">Powered by Firebase</div>
+  </div>
+</div>
 
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
@@ -107,6 +201,7 @@ let wasDisconnected = false;
 // still gets asked for a name every time, as intended.
 let currentName = null;
 let playerNames = {}; // seat -> {base, display}, kept live so opponent seats can show their real name instead of "Seat N"
+let phoneConfettiFired = false; // guards the confetti burst to fire once per game-over, mirrors tv.html's gameOverConfettiFired
 let preActions = {}; // seat -> 'checkFold' | null, kept live so the checkbox reflects the host clearing it (new street, or consumed)
 let sitOutSeats = {}; // seat -> true/false, kept live — separate from preActions since this is sticky indefinitely, not re-armed per street
 let blindLevelInfo = null; // {smallBlindAmount, bigBlindAmount, anteAmount, nextLevelUpAt} synced from the host — see game-sync.js
@@ -553,6 +648,49 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   });
 });
 
+// Victory confetti (phone) — same particle approach as tv.html, but scoped
+// to the phone's own viewport since there's no shared #ovalTable here.
+function triggerVictoryConfettiPhone() {
+  const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
+  const particles = [];
+  for (let i = 0; i < 80; i++) { // fewer than tv.html's 150 — smaller screen, no need for as dense a burst
+    const p = document.createElement('div');
+    p.className = 'fsParticle';
+    p.style.left = (window.innerWidth / 2) + 'px';
+    p.style.top = (window.innerHeight / 2) + 'px';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 100 + Math.random() * 250;
+    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    p.style.setProperty('--dur', (1.5 + Math.random() * 1.5) + 's');
+    p.style.setProperty('--delay', (Math.random() * 0.4) + 's');
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    document.body.appendChild(p);
+    particles.push(p);
+  }
+  setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 3500);
+}
+
+// Phone's own Quit button (Final Standings): shows credits, then resets
+// ONLY this phone's own local view back to the name-entry screen — it
+// deliberately does NOT touch the shared Firebase game state (that stays
+// host-only, via tv.html's Quit Game / Final Standings Quit). See the
+// conversation where this was decided: any player finishing the game
+// shouldn't be able to kick the whole room.
+function quitAfterCreditsPhone() {
+  document.getElementById('creditsScreen').classList.add('show');
+  setTimeout(() => {
+    document.getElementById('creditsScreen').classList.remove('show');
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('nameGate').style.display = 'flex';
+    document.getElementById('nameInput').value = '';
+    document.getElementById('finalStandingsArea').style.display = 'none';
+    document.getElementById('seatBadge').textContent = 'joining…';
+    currentName = null;
+    mySeat = null;
+  }, 7000);
+}
+
 function render(state) {
   const errorEl = document.getElementById('error');
   if (!state) {
@@ -561,8 +699,43 @@ function render(state) {
     document.getElementById('actions').innerHTML = '';
     document.getElementById('board').innerHTML = '';
     document.getElementById('others').innerHTML = '';
+    document.getElementById('finalStandingsArea').style.display = 'none';
     return;
   }
+  if (state.gameOverInfo) {
+    // Mirrors tv.html's Final Standings box — same medals/no-extra-stat
+    // design. Hides the rest of gameArea (board/actions/etc.) since the
+    // hand that just finished is moot once the whole game is over.
+    document.getElementById('board').innerHTML = '';
+    document.getElementById('info').textContent = '';
+    document.getElementById('squeezeStackReadout').textContent = '';
+    document.getElementById('actions').innerHTML = '';
+    document.getElementById('preActionArea').innerHTML = '';
+    document.getElementById('others').innerHTML = '';
+    document.getElementById('resultBox').innerHTML = '';
+    const medals = ['🥇', '🥈', '🥉'];
+    const seatLabelPhone = (seat) => (playerNames[seat] && playerNames[seat].display) || `Seat ${seat + 1}`;
+    const rows = state.gameOverInfo.standings.map((seat, i) => `
+      <div class="fs-row${i === 0 ? ' fs-1st' : ''}">
+        <div class="fs-medal">${medals[i] || (i + 1) + '.'}</div>
+        <div class="fs-name">${seatLabelPhone(seat)}</div>
+      </div>`).join('');
+    const fsArea = document.getElementById('finalStandingsArea');
+    fsArea.style.display = 'block';
+    fsArea.innerHTML = `<div id="finalStandingsBox">
+      <div class="fs-header">🏆 FINAL STANDINGS</div>
+      ${rows}
+      <button id="finalStandingsQuitBtnPhone" class="fs-quit">Quit</button>
+    </div>`;
+    document.getElementById('finalStandingsQuitBtnPhone').addEventListener('click', quitAfterCreditsPhone);
+    if (!phoneConfettiFired) {
+      phoneConfettiFired = true;
+      triggerVictoryConfettiPhone();
+    }
+    return;
+  }
+  phoneConfettiFired = false; // reset once a genuinely new game is underway (gameOverInfo cleared)
+  document.getElementById('finalStandingsArea').style.display = 'none';
   // BUG FIX: Firebase Realtime Database silently drops any field written as
   // an empty array (or empty object) — it treats [] as "no data" rather
   // than "an empty list". board and foldedSeats both start out empty

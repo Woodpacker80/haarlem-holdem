@@ -47,6 +47,67 @@
     box-sizing:border-box;font-size:12px;line-height:1.65;color:#c9c4b0;}
   #rulesIconBtn{position:fixed;top:54px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
   .badgeDark{background:rgba(0,0,0,0.28);}
+  #finalStandingsBox{width:320px;margin:0 auto;background:rgba(0,0,0,0.35);
+    border:2px solid #c9a84c;border-radius:14px;overflow:hidden;
+    box-shadow:0 0 28px rgba(201,168,76,0.2);}
+  #finalStandingsBox .fs-header{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
+    padding:10px 16px;text-align:center;font-weight:700;font-size:13px;
+    letter-spacing:3px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
+  #finalStandingsBox .fs-row{display:flex;align-items:center;gap:12px;
+    padding:9px 16px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  #finalStandingsBox .fs-row:last-child{border-bottom:none;}
+  #finalStandingsBox .fs-row.fs-1st{background:linear-gradient(90deg,rgba(245,216,120,0.16),rgba(201,168,76,0.05));}
+  #finalStandingsBox .fs-medal{font-size:18px;min-width:26px;text-align:center;}
+  #finalStandingsBox .fs-name{flex:1;font-size:14px;font-weight:600;color:#e9e2cf;text-align:left;}
+  #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
+  #finalStandingsBox .fs-quit{display:block;width:calc(100% - 32px);margin:14px 16px 16px;
+    font-size:12px;padding:9px 0;}
+
+  /* Victory confetti — adapted from Bazinco's jumbotron particle burst */
+  .fsParticle{position:absolute;width:8px;height:8px;border-radius:50%;pointer-events:none;
+    top:50%;left:50%;transform:translate(-50%,-50%);
+    animation:fsParticleFly var(--dur,2s) var(--delay,0s) ease-out forwards;}
+  @keyframes fsParticleFly{0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
+    60%{opacity:0.8;}
+    100%{transform:translate(calc(-50% + var(--tx,0px)),calc(-50% + var(--ty,0px))) scale(0.3);opacity:0;}}
+
+  /* Credits screen — shown only after Final Standings' own Quit button,
+     never for the lobby/mid-game Quit Game button (that would be too much
+     ceremony for someone just stopping early). Styled to match tv.html's
+     own gold/cream palette rather than copying Bazinco's CSS variables. */
+  #creditsScreen{position:fixed;inset:0;z-index:300;display:none;
+    align-items:center;justify-content:center;overflow:hidden;background:#000;}
+  #creditsScreen.show{display:flex;}
+  .credits-beams{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  .beam{position:absolute;top:0;width:3px;height:75%;border-radius:0 0 3px 3px;opacity:0;
+    transform-origin:top center;animation:beamSweep 4s ease-in-out infinite;filter:blur(2px);}
+  .beam-1{left:20%;background:linear-gradient(to bottom,#ffff00,transparent);animation-delay:0s;}
+  .beam-2{left:38%;background:linear-gradient(to bottom,#00ff88,transparent);animation-delay:0.8s;}
+  .beam-3{left:58%;background:linear-gradient(to bottom,#ff2d78,transparent);animation-delay:1.6s;}
+  .beam-4{left:78%;background:linear-gradient(to bottom,#b44dff,transparent);animation-delay:2.4s;}
+  .beam-glow{position:absolute;top:0;width:60px;height:70%;border-radius:0 0 50% 50%;opacity:0;
+    transform-origin:top center;animation:beamSweep 4s ease-in-out infinite;filter:blur(18px);}
+  .beam-glow-1{left:calc(20% - 28px);background:radial-gradient(ellipse at top,rgba(255,255,0,0.4),transparent 70%);animation-delay:0s;}
+  .beam-glow-2{left:calc(38% - 28px);background:radial-gradient(ellipse at top,rgba(0,255,136,0.4),transparent 70%);animation-delay:0.8s;}
+  .beam-glow-3{left:calc(58% - 28px);background:radial-gradient(ellipse at top,rgba(255,45,120,0.4),transparent 70%);animation-delay:1.6s;}
+  .beam-glow-4{left:calc(78% - 28px);background:radial-gradient(ellipse at top,rgba(180,77,255,0.4),transparent 70%);animation-delay:2.4s;}
+  @keyframes beamSweep{0%{opacity:0;transform:rotate(-18deg);}15%{opacity:1;}
+    45%{opacity:0.85;transform:rotate(18deg);}65%{opacity:1;transform:rotate(-8deg);}
+    85%{opacity:0.6;transform:rotate(12deg);}100%{opacity:0;transform:rotate(-18deg);}}
+  .credits-content{position:relative;z-index:10;display:flex;flex-direction:column;
+    align-items:center;gap:26px;padding:40px 28px;text-align:center;
+    animation:creditsReveal 0.8s cubic-bezier(0.16,1,0.3,1) both;}
+  @keyframes creditsReveal{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .credits-thank{font-family:'Cinzel',serif;font-size:17px;font-weight:700;color:#e9c976;
+    letter-spacing:2px;line-height:1.5;}
+  .credits-divider{width:60px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);}
+  .credits-logo{font-family:'Cinzel',serif;font-size:36px;font-weight:900;letter-spacing:5px;
+    color:#c9a84c;filter:drop-shadow(0 0 20px rgba(201,168,76,0.5));}
+  .credits-block{display:flex;flex-direction:column;gap:5px;}
+  .credits-role{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#7d8299;}
+  .credits-name{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#e9c976;letter-spacing:1px;}
+  .credits-sub{font-size:11px;color:#c9c4b0;letter-spacing:2px;margin-top:2px;}
+  .credits-poweredby{font-size:10px;color:#7d8299;letter-spacing:2px;margin-top:6px;text-transform:uppercase;}
   .lbRow{display:flex;align-items:center;gap:12px;padding:10px 4px;
     border-bottom:1px solid #3a3f52;font-size:14px;}
   .lbRank{color:#c9a84c;font-weight:700;width:22px;}
@@ -326,6 +387,39 @@
   <div id="leaderboardSidebar"></div>
   <div id="rulesSidebar"></div>
 
+  <!-- Credits screen — only ever shown via Final Standings' own Quit
+       button, never the lobby/mid-game Quit Game button. -->
+  <div id="creditsScreen">
+    <div class="credits-beams">
+      <div class="beam beam-1"></div><div class="beam beam-2"></div>
+      <div class="beam beam-3"></div><div class="beam beam-4"></div>
+      <div class="beam-glow beam-glow-1"></div><div class="beam-glow beam-glow-2"></div>
+      <div class="beam-glow beam-glow-3"></div><div class="beam-glow beam-glow-4"></div>
+    </div>
+    <div class="credits-content">
+      <div class="credits-thank">Thank you for playing our game</div>
+      <div class="credits-divider"></div>
+      <div class="credits-logo">HAARLEM HOLD'EM</div>
+      <div class="credits-divider"></div>
+      <div class="credits-block">
+        <div class="credits-role">Game Designer &amp; Creative Director</div>
+        <div class="credits-name">M.H. Oddens</div>
+      </div>
+      <div class="credits-block">
+        <div class="credits-role">Programmer &amp; Co-Designer</div>
+        <div class="credits-name">Claude AI</div>
+        <div class="credits-sub">Anthropic</div>
+      </div>
+      <div class="credits-block">
+        <div class="credits-role">Technical Reviewer</div>
+        <div class="credits-name">Gemini AI</div>
+        <div class="credits-sub">Google</div>
+      </div>
+      <div class="credits-divider"></div>
+      <div class="credits-poweredby">Powered by Firebase</div>
+    </div>
+  </div>
+
   <div id="ovalTable">
     <div id="ovalRim"></div>
     <div id="ovalFelt"></div>
@@ -505,6 +599,29 @@ function dealOrderFromDealer(dealerSeat, numSeats, activeSeats) {
   }
   return order;
 }
+// Victory confetti — adapted from Bazinco's triggerJumbotronVictory(): 150
+// gold-toned particles burst outward from the center of the oval table and
+// fade over ~2-3s. Fires exactly once per game-over (see gameOverConfettiFired).
+function triggerVictoryConfetti() {
+  const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
+  const container = document.getElementById('ovalTable');
+  const particles = [];
+  for (let i = 0; i < 150; i++) {
+    const p = document.createElement('div');
+    p.className = 'fsParticle';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 150 + Math.random() * 400;
+    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    p.style.setProperty('--dur', (1.5 + Math.random() * 1.5) + 's');
+    p.style.setProperty('--delay', (Math.random() * 0.4) + 's');
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    container.appendChild(p);
+    particles.push(p);
+  }
+  setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 3500);
+}
+
 function playDealingAnimation(onComplete) {
   dealingInProgress = true;
   const order = dealOrderFromDealer(gameConfig.dealerSeat, handState.numSeats, gameConfig.activeSeats);
@@ -580,6 +697,7 @@ let lastStreetForPreActions = null; // detects a new street beginning, to clear 
 // render() call (fired by any unrelated state update) would silently wipe
 // out again, since render() unconditionally rewrites that area every time.
 let gameOverInfo = null;
+let gameOverConfettiFired = false; // guards the confetti burst to fire exactly once per game-over, not on every render()
 
 // Same 10-stack arrangement and edge-spot styling as the lobby artwork
 // (position, base/stroke, spot A, spot B, chip count) — just re-scaled down
@@ -725,6 +843,7 @@ function publicStateFrom(h) {
     revealedHoleCards: visibleHoleCards(h),
     pendingReveal: h.pendingReveal ? { order: h.pendingReveal.order, currentIndex: h.pendingReveal.currentIndex } : null,
     pendingVoluntaryShow: h.pendingVoluntaryShow,
+    gameOverInfo, // synced separately from the rest of h — set once the game truly ends, null throughout play, read by phone.html to mirror Final Standings there
   };
 }
 
@@ -752,6 +871,7 @@ function publish() {
 function dealFirstHand() {
   SFX.unlock();
   gameOverInfo = null;
+  gameOverConfettiFired = false;
   const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
   const startStack = parseInt(document.getElementById('startStack').value, 10);
   const stacks = {};
@@ -763,6 +883,7 @@ function dealFirstHand() {
     smallBlindAmount: parseInt(document.getElementById('sbAmount').value, 10),
     bigBlindAmount: parseInt(document.getElementById('bbAmount').value, 10),
     anteAmount: parseInt(document.getElementById('anteAmount').value, 10) || 0,
+    eliminationOrder: [], // seats in the order they busted out, oldest-bust first — builds the Final Standings ranking
   };
   updateBlindsBadge();
   scheduleBlindLevelUp();
@@ -856,10 +977,20 @@ function startNewHand() {
 function dealNextHand() {
   SFX.unlock();
   gameConfig.stacks = handState.stacks;
+  // Record who busted THIS hand, in seat order, before filtering them out —
+  // this is the one moment we still know who just went to 0. Two players
+  // can bust in the same hand (a multi-way all-in); they're recorded
+  // together here with no tiebreak between them, in ascending seat order.
+  const bustedThisHand = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] <= 0);
+  gameConfig.eliminationOrder.push(...bustedThisHand);
   gameConfig.activeSeats = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] > 0);
   if (gameConfig.activeSeats.length < 2) {
-    gameOverInfo = { winnerSeat: gameConfig.activeSeats[0] };
-    render(); // reflect immediately rather than waiting for the next unrelated state update
+    // Final Standings: winner is 1st, then reverse elimination order —
+    // the most recently busted player finishes 2nd, the very first player
+    // to bust finishes last. Mirrors Bazinco's jumbotron final-standings model.
+    const standings = [gameConfig.activeSeats[0], ...[...gameConfig.eliminationOrder].reverse()];
+    gameOverInfo = { winnerSeat: gameConfig.activeSeats[0], standings };
+    publish(); // reflect immediately AND sync to phones — Final Standings/confetti/Quit now mirror there too, not just on tv.html
     return;
   }
   // Advance dealer button to the next active seat.
@@ -1140,10 +1271,15 @@ document.getElementById('rulesSidebar').addEventListener('click', (e) => {
   // even when there's no active countdown to show (e.g. between games).
 });
 
-document.getElementById('quitGameBtn').addEventListener('click', async () => {
+// Shared reset-to-lobby logic — used by the lobby/mid-game Quit Game button
+// AND by Final Standings' own Quit button (the latter shows credits first
+// via quitAfterCredits(), then calls this same function; see there for why
+// credits only ever appear on that path, never here).
+async function quitToLobby() {
   handState = null;
   gameConfig = null;
   gameOverInfo = null;
+  gameOverConfettiFired = false;
   dealingInProgress = false;
   dealtCardCount = {};
   Object.keys(sitOutSeats).forEach(seat => { if (sitOutSeats[seat]) setSitOut(seat, null); });
@@ -1165,7 +1301,19 @@ document.getElementById('quitGameBtn').addEventListener('click', async () => {
   document.getElementById('rulesSidebar').classList.remove('open');
   document.getElementById('leaderboardSidebar').innerHTML = '';
   document.getElementById('dealerButton')?.remove();
-});
+}
+
+// Final Standings' own Quit button: credits screen first (7s, matching
+// Bazinco's own timing), then the exact same reset quitToLobby() does.
+function quitAfterCredits() {
+  document.getElementById('creditsScreen').classList.add('show');
+  setTimeout(() => {
+    document.getElementById('creditsScreen').classList.remove('show');
+    quitToLobby();
+  }, 7000);
+}
+
+document.getElementById('quitGameBtn').addEventListener('click', quitToLobby);
 
 // 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
 // whenever the host chooses. See kickSeat/clearBans in game-sync.js.
@@ -1182,6 +1330,7 @@ document.getElementById('clearBansBtn').addEventListener('click', clearBans);
 // time, which is exactly the explicit, host-controlled behavior wanted.
 document.getElementById('startNewGameBtn').addEventListener('click', async () => {
   gameOverInfo = null;
+  gameOverConfettiFired = false;
   dealingInProgress = false;
   dealtCardCount = {};
   Object.keys(sitOutSeats).forEach(seat => { if (sitOutSeats[seat]) setSitOut(seat, null); });
@@ -1752,7 +1901,26 @@ function render() {
     // and persists across every future render() call for this game, unlike
     // the one-off message dealNextHand() used to write directly (which the
     // very next render() would silently overwrite again).
-    resultArea.innerHTML = `<div style="color:#c9a84c;font-weight:600;">🏆 Game Over — ${seatLabel(gameOverInfo.winnerSeat)} wins!</div>`;
+    // Styled after Bazinco's jumbotron Final Standings box — gold-bordered
+    // list, medals for top 3, plain numbers below that. No stat next to
+    // each name (poker has no equivalent to a running score); rank is the
+    // only number shown.
+    const medals = ['🥇', '🥈', '🥉'];
+    const rows = gameOverInfo.standings.map((seat, i) => `
+      <div class="fs-row${i === 0 ? ' fs-1st' : ''}">
+        <div class="fs-medal">${medals[i] || (i + 1) + '.'}</div>
+        <div class="fs-name">${seatLabel(seat)}</div>
+      </div>`).join('');
+    resultArea.innerHTML = `<div id="finalStandingsBox">
+      <div class="fs-header">🏆 FINAL STANDINGS</div>
+      ${rows}
+      <button id="finalStandingsQuitBtn" class="fs-quit">Quit</button>
+    </div>`;
+    document.getElementById('finalStandingsQuitBtn').addEventListener('click', quitAfterCredits);
+    if (!gameOverConfettiFired) {
+      gameOverConfettiFired = true;
+      triggerVictoryConfetti();
+    }
     hostControls.innerHTML = '';
   }
 
