@@ -212,6 +212,7 @@
   .potbox .eligible{font-size:12px;color:#7d8299;}
   .splitTag{color:#c9a84c;font-weight:700;}
   #setupArea{text-align:center;margin-left:100px;}
+  .stackPresetBtn.selected{background:rgba(201,168,76,0.28);}
   #seatList{font-size:13px;color:#7d8299;margin:10px 0;}
 </style>
 </head>
@@ -409,10 +410,21 @@
 
 <div id="setupArea">
   <div id="seatList">Waiting for players to join…</div>
-  <label>Starting stack</label><input type="number" id="startStack" value="2500" min="20">
-  <label>Small blind</label><input type="number" id="sbAmount" value="25" min="1">
-  <label>Big blind</label><input type="number" id="bbAmount" value="50" min="2">
-  <label>Starting ante</label><input type="number" id="anteAmount" value="5" min="0">
+  <!-- Starting stack: 3 preset buttons, not free typing — auto-derives Big
+       Blind/Small Blind/Ante from whichever is selected (BB=stack/50,
+       SB=BB/2, Ante=BB*10%, matching real per-player-ante tournament
+       convention — verified against actual structure sheets, not guessed;
+       also happens to reproduce today's own exact 2500/50/25/5 defaults).
+       Plain <button> elements deliberately — the most universally
+       remote/D-pad-navigable interactive element there is, safer than a
+       custom control for an NVIDIA Shield's remote app specifically. -->
+  <div style="margin-top:6px;color:#7d8299;font-size:12px;">Starting stack</div>
+  <div id="stackPresetRow" style="display:flex;gap:10px;justify-content:center;margin-top:6px;">
+    <button type="button" class="stackPresetBtn" data-stack="2500" style="padding:8px 16px;font-size:13px;">2,500</button>
+    <button type="button" class="stackPresetBtn" data-stack="5000" style="padding:8px 16px;font-size:13px;">5,000</button>
+    <button type="button" class="stackPresetBtn" data-stack="7500" style="padding:8px 16px;font-size:13px;">7,500</button>
+  </div>
+  <div id="derivedBlindsPreview" style="margin-top:8px;color:#7d8299;font-size:12px;"></div>
 
   <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin-top:12px;">
     <div style="text-align:center;">
@@ -927,21 +939,58 @@ function publish() {
   }
 }
 
+let selectedStartStack = 2500; // set by the preset buttons; default matches the game's original starting numbers exactly
+
+// Derives Big Blind / Small Blind / Ante from a starting stack, per the
+// fixed ratio researched against real tournament structure sheets (not
+// guessed): BB = stack/50 (a 50:1 stack-to-BB ratio, the sensible low end
+// of the 50:1-100:1 range recommended for a home game running a few
+// hours — WSOP Main Event's much deeper 200:1 is a multi-day marathon
+// format, not applicable here). SB = BB/2 (universal convention). Ante =
+// BB*10% (traditional PER-PLAYER ante, not the newer Big-Blind-Ante
+// format this project already decided against — real structure sheets
+// run this at roughly 10-17% of BB; 10% was picked because it exactly
+// reproduces the game's own original 2500/50/25/5 defaults, confirming
+// those were already well-calibrated rather than arbitrary).
+function deriveBlindsFromStack(stack) {
+  const bigBlindAmount = roundToNiceChipValue(stack / 50);
+  const smallBlindAmount = roundToNiceChipValue(bigBlindAmount / 2);
+  const anteAmount = roundToNiceChipValue(bigBlindAmount * 0.10);
+  return { smallBlindAmount, bigBlindAmount, anteAmount };
+}
+
+document.querySelectorAll('.stackPresetBtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedStartStack = parseInt(btn.dataset.stack, 10);
+    document.querySelectorAll('.stackPresetBtn').forEach(b => b.classList.toggle('selected', b === btn));
+    const { smallBlindAmount, bigBlindAmount, anteAmount } = deriveBlindsFromStack(selectedStartStack);
+    document.getElementById('derivedBlindsPreview').textContent =
+      `Blinds ${smallBlindAmount}/${bigBlindAmount} • Ante ${anteAmount}`;
+  });
+});
+// Fire once on load so the default (2500, already selected below) shows
+// its derived numbers immediately rather than leaving the preview blank
+// until the host actually clicks something.
+document.addEventListener('DOMContentLoaded', () => {
+  const defaultBtn = document.querySelector('.stackPresetBtn[data-stack="2500"]');
+  if (defaultBtn) defaultBtn.click();
+});
+
 function dealFirstHand() {
   SFX.unlock();
   gameOverInfo = null;
   gameOverConfettiFired = false;
   const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
-  const startStack = parseInt(document.getElementById('startStack').value, 10);
   const stacks = {};
-  activeSeats.forEach(s => stacks[s] = startStack);
+  activeSeats.forEach(s => stacks[s] = selectedStartStack);
+  const { smallBlindAmount, bigBlindAmount, anteAmount } = deriveBlindsFromStack(selectedStartStack);
   gameConfig = {
     activeSeats,
     stacks,
     dealerSeat: activeSeats[0],
-    smallBlindAmount: parseInt(document.getElementById('sbAmount').value, 10),
-    bigBlindAmount: parseInt(document.getElementById('bbAmount').value, 10),
-    anteAmount: parseInt(document.getElementById('anteAmount').value, 10) || 0,
+    smallBlindAmount,
+    bigBlindAmount,
+    anteAmount,
     eliminationOrder: [], // seats in the order they busted out, oldest-bust first — builds the Final Standings ranking
   };
   updateBlindsBadge();
