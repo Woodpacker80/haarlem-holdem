@@ -49,27 +49,25 @@
   .badgeDark{background:rgba(0,0,0,0.28);}
   /* Final Standings — full-screen takeover overlay (not crammed into the
      table felt anymore, which was overlapping the finished hand's leftover
-     board/action-log/seat text and reading too small/unprominent). Mirrors
-     Bazinco's dedicated Final Results screen presence.
-     Background is Bazinco's ACTUAL jumbotron screen background — a near-
-     black radial "spotlight" gradient plus a faint diagonal texture — not
-     the app's normal navy #0F2A55 (that was a real mismatch, confirmed via
-     side-by-side screenshot).
-     Persistent "HAARLEM HOLD'EM" title bar mirrors Bazinco's own separate
-     56px header row (its "BAZINCO!" logo lives there, not inside the
-     results panel itself) — top-aligned box below it, not centered,
-     matching Bazinco's `justify-content:flex-start;margin-top:30px`.
-     Box grows to use the full available vertical space (up to 92vh) before
-     ever shrinking text for more players — header and Quit stay pinned in
-     place; only the row list scrolls, and only if it has to. */
+     board/action-log/seat text and reading too small/unprominent).
+     Background simplified per Mark's explicit direction after the
+     Bazinco-exact-replica attempts kept falling short: solid dark navy +
+     a CONTAINED lighter-blue radial glow (not stretched edge-to-edge across
+     the full-width screen, which is what made it read as a flat wash
+     rather than a spotlight) — no diagonal texture at all.
+     Persistent "HAARLEM HOLD'EM" title bar sits above the box, unboxed (no
+     background/border/line — plain text on the glow).
+     Box is top-aligned below the title, not centered.
+     Sizing is DYNAMIC by player count (.compact class, toggled in JS):
+     verified empirically with Playwright at Mark's actual TV resolution
+     (960×484 logical) — roomy sizing genuinely fits at most 3 rows before
+     clipping; compact sizing fits 8 rows with real margin to spare.
+     Scrolling was tried first but is a dead end on a TV with no practical
+     remote-based scroll method, so it must always fit without scrolling. */
   #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
-    flex-direction:column;overflow:hidden;
-    background:radial-gradient(ellipse at 50% 35%,#0e2244 0%,#040c1a 70%);}
+    flex-direction:column;overflow:hidden;background:#0a1830;}
   #finalStandingsScreen::before{content:'';position:absolute;inset:0;
-    background-image:
-      repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.01) 4px,rgba(255,255,255,0.01) 8px),
-      repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(255,255,255,0.018) 3px,rgba(255,255,255,0.018) 6px),
-      repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 6px);
+    background:radial-gradient(ellipse 55% 75% at 50% 30%,#1c3d6e 0%,transparent 75%);
     pointer-events:none;}
   #finalStandingsScreen.show{display:flex;}
   .fs-titlebar{flex:0 0 auto;padding:16px 0;text-align:center;position:relative;z-index:1;}
@@ -78,9 +76,9 @@
     -webkit-text-fill-color:transparent;background-clip:text;}
   .fs-boxWrap{flex:1 1 auto;display:flex;justify-content:center;align-items:flex-start;
     padding-top:30px;overflow:hidden;position:relative;z-index:1;}
-  #finalStandingsBox{width:100%;max-width:480px;max-height:calc(92vh - 88px);margin:0 24px;
+  #finalStandingsBox{width:100%;max-width:480px;max-height:calc(97vh - 88px);margin:0 24px;
     background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:18px;
-    overflow:hidden;box-shadow:0 0 40px rgba(201,168,76,0.25);
+    overflow:hidden;box-shadow:0 0 40px rgba(201,168,76,0.2);
     display:flex;flex-direction:column;position:relative;z-index:1;}
   #finalStandingsBox .fs-header{flex:0 0 auto;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
     padding:18px 24px;text-align:center;font-weight:700;font-size:22px;
@@ -95,6 +93,18 @@
   #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
   #finalStandingsBox .fs-quit{flex:0 0 auto;display:block;width:calc(100% - 52px);margin:20px 26px 26px;
     font-size:14px;padding:12px 0;}
+  /* Compact profile — 4+ players (verified via Playwright: fits 8 rows
+     with genuine margin at Mark's actual TV resolution). Applied by
+     adding .compact to #finalStandingsScreen in JS. */
+  #finalStandingsScreen.compact .fs-titlebar{padding:5px 0;}
+  #finalStandingsScreen.compact .fs-titletext{font-size:13px;letter-spacing:3px;}
+  #finalStandingsScreen.compact .fs-boxWrap{padding-top:6px;}
+  #finalStandingsScreen.compact #finalStandingsBox{max-height:calc(99vh - 32px);}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-header{padding:7px 16px;font-size:13px;letter-spacing:2px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-row{gap:12px;padding:6px 18px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-medal{font-size:16px;min-width:24px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-name{font-size:14px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-quit{margin:6px 16px 8px;font-size:10px;padding:5px 0;}
 
   /* Victory confetti — falling only now (no more burst — confirmed both
      Bazinco screens actually rain confetti from the top; my earlier read
@@ -739,6 +749,7 @@ let lastStreetForPreActions = null; // detects a new street beginning, to clear 
 // out again, since render() unconditionally rewrites that area every time.
 let gameOverInfo = null;
 let gameOverConfettiFired = false; // guards the confetti burst to fire exactly once per game-over, not on every render()
+let autoAdvanceTriggered = false; // guards the game-ending-hand auto-advance (see isGameEndingHand in render()) to fire exactly once per hand, reset in startNewHand()
 
 // Same 10-stack arrangement and edge-spot styling as the lobby artwork
 // (position, base/stroke, spot A, spot B, chip count) — just re-scaled down
@@ -969,6 +980,7 @@ function startNewHand() {
   burnAnimationPending = false;
   actionLog = [];
   currentStreetLabel = '';
+  autoAdvanceTriggered = false;
   clearRevealTimer();
   clearVoluntaryTimer();
   allInAnimated = {};
@@ -1519,6 +1531,11 @@ function renderFinalStandingsScreen() {
     <button id="finalStandingsQuitBtn" class="fs-quit">Quit</button>
   </div></div>`;
   screen.classList.add('show');
+  // Compact sizing for 4+ players — verified via Playwright at Mark's
+  // actual TV resolution that roomy sizing clips starting at 4 rows, and
+  // compact sizing fits all 8 with real margin. Scrolling isn't a viable
+  // fallback on a TV with no practical remote-based scroll method.
+  screen.classList.toggle('compact', gameOverInfo.standings.length >= 4);
   document.getElementById('finalStandingsQuitBtn').addEventListener('click', quitAfterCredits);
   // Explicitly hidden here rather than relying on the overlay's opacity to
   // cover it — render()'s early-return skips the code that would normally
@@ -1655,6 +1672,22 @@ function render() {
     </div>`).join('');
 
   const handComplete = h.result && revealCaughtUp;
+  // Detect whether THIS hand is the one that actually ends the game (fewer
+  // than 2 players left with chips afterward) — this is the same check
+  // dealNextHand() does internally, computed here too so we can skip the
+  // manual "Deal Next Hand" click for exactly this one case. Mark's report:
+  // requiring that click before Final Standings/confetti even appear made
+  // the whole moment "fall flat" — the fix is to never show the button for
+  // this specific hand and auto-advance instead, once, after a brief pause
+  // so the final pot/result is still visible for a beat first.
+  const isGameEndingHand = handComplete
+    && gameConfig.activeSeats.filter(s => h.stacks[s] > 0).length < 2;
+  if (isGameEndingHand && !autoAdvanceTriggered) {
+    autoAdvanceTriggered = true;
+    setTimeout(() => {
+      if (!gameOverInfo && gameConfig) dealNextHand();
+    }, 2500);
+  }
   document.getElementById('statusLine').textContent = h.result
     ? 'Hand complete'
     : (h.bettingRound ? `It's ${seatLabel(h.bettingRound.actingSeat)}'s turn` : '');
@@ -1986,7 +2019,7 @@ function render() {
   // correctly regardless of font size or exact text width, and clamped so
   // it can never end up past the oval's own rim.
   const nextHandBtn2 = document.getElementById('nextHandBtn2');
-  if (handComplete) {
+  if (handComplete && !isGameEndingHand) {
     const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
     const statusRect = document.getElementById('statusLine').getBoundingClientRect();
     const desiredLeft = statusRect.right + 20;

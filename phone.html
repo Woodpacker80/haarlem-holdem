@@ -62,22 +62,17 @@
     -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 
   /* Final Standings (phone) — full-screen takeover, matching tv.html's
-     ACTUAL Bazinco background (near-black radial spotlight + diagonal
-     texture — the plain navy #0F2A55 before was a real mismatch, confirmed
-     via side-by-side screenshot against Bazinco's own jumbotron screen).
-     Persistent "HAARLEM HOLD'EM" title bar mirrors Bazinco's own separate
-     header row; box sits top-aligned below it, matching Bazinco's
-     `justify-content:flex-start;margin-top:30px` (not centered).
-     Box grows to use full available height (up to 92vh) before ever
-     shrinking text — header/Quit stay pinned, only rows scroll if needed. */
+     simplified background per Mark's explicit direction: solid dark navy +
+     a CONTAINED lighter-blue radial glow (not a flat full-bleed wash) — no
+     diagonal texture at all.
+     Persistent "HAARLEM HOLD'EM" title bar sits above the box, unboxed.
+     Box is top-aligned below the title, not centered.
+     Sizing is DYNAMIC by player count (.compact class, toggled in JS) —
+     same verified thresholds as tv.html. */
   #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
-    flex-direction:column;overflow:hidden;
-    background:radial-gradient(ellipse at 50% 35%,#0e2244 0%,#040c1a 70%);}
+    flex-direction:column;overflow:hidden;background:#0a1830;}
   #finalStandingsScreen::before{content:'';position:absolute;inset:0;
-    background-image:
-      repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.01) 4px,rgba(255,255,255,0.01) 8px),
-      repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(255,255,255,0.018) 3px,rgba(255,255,255,0.018) 6px),
-      repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 6px);
+    background:radial-gradient(ellipse 55% 75% at 50% 30%,#1c3d6e 0%,transparent 75%);
     pointer-events:none;}
   #finalStandingsScreen.show{display:flex;}
   .fs-titlebar{flex:0 0 auto;padding:14px 0;text-align:center;position:relative;z-index:1;}
@@ -86,9 +81,9 @@
     -webkit-text-fill-color:transparent;background-clip:text;}
   .fs-boxWrap{flex:1 1 auto;display:flex;justify-content:center;align-items:flex-start;
     padding-top:24px;overflow:hidden;position:relative;z-index:1;}
-  #finalStandingsBox{width:100%;max-width:340px;max-height:calc(92vh - 70px);margin:0 20px;
+  #finalStandingsBox{width:100%;max-width:340px;max-height:calc(97vh - 70px);margin:0 20px;
     background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:16px;
-    overflow:hidden;box-shadow:0 0 32px rgba(201,168,76,0.25);
+    overflow:hidden;box-shadow:0 0 32px rgba(201,168,76,0.2);
     display:flex;flex-direction:column;position:relative;z-index:1;}
   #finalStandingsBox .fs-header{flex:0 0 auto;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
     padding:14px 18px;text-align:center;font-weight:700;font-size:17px;
@@ -103,6 +98,15 @@
   #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
   #finalStandingsBox .fs-quit{flex:0 0 auto;display:block;width:calc(100% - 36px);margin:16px 18px 18px;
     font-size:13px;padding:10px 0;}
+  #finalStandingsScreen.compact .fs-titlebar{padding:5px 0;}
+  #finalStandingsScreen.compact .fs-titletext{font-size:12px;letter-spacing:2px;}
+  #finalStandingsScreen.compact .fs-boxWrap{padding-top:6px;}
+  #finalStandingsScreen.compact #finalStandingsBox{max-height:calc(99vh - 32px);}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-header{padding:6px 14px;font-size:12px;letter-spacing:1.5px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-row{gap:10px;padding:6px 14px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-medal{font-size:15px;min-width:20px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-name{font-size:13px;}
+  #finalStandingsScreen.compact #finalStandingsBox .fs-quit{margin:6px 14px 8px;font-size:10px;padding:5px 0;}
 
   /* Confetti — falling only (no more burst), matching tv.html. */
   .fsParticle{position:fixed;top:-16px;pointer-events:none;z-index:9999;
@@ -758,6 +762,7 @@ function render(state) {
       <button id="finalStandingsQuitBtnPhone" class="fs-quit">Quit</button>
     </div></div>`;
     screen.classList.add('show');
+    screen.classList.toggle('compact', state.gameOverInfo.standings.length >= 4);
     document.getElementById('finalStandingsQuitBtnPhone').addEventListener('click', quitAfterCreditsPhone);
     if (!phoneConfettiFired) {
       phoneConfettiFired = true;
