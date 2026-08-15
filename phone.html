@@ -65,13 +65,23 @@
      styled container, rather than truly covering the screen).
      Box grows to use full available height (up to 92vh) before ever
      shrinking text — header/Quit stay pinned, only rows scroll if needed. */
+  /* Final Standings (phone) — full-screen takeover, matching tv.html's
+     ACTUAL Bazinco background (near-black radial spotlight + diagonal
+     texture — the plain navy #0F2A55 before was a real mismatch, confirmed
+     via side-by-side screenshot against Bazinco's own jumbotron screen).
+     Box grows to use full available height (up to 92vh) before ever
+     shrinking text — header/Quit stay pinned, only rows scroll if needed. */
   #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
-    align-items:center;justify-content:center;background:#0F2A55;}
+    align-items:center;justify-content:center;overflow:hidden;
+    background:radial-gradient(ellipse at 50% 35%,#0e2244 0%,#040c1a 70%);}
+  #finalStandingsScreen::before{content:'';position:absolute;inset:0;
+    background-image:repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.015) 4px,rgba(255,255,255,0.015) 8px);
+    pointer-events:none;}
   #finalStandingsScreen.show{display:flex;}
   #finalStandingsBox{width:100%;max-width:340px;max-height:92vh;
     background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:16px;
     overflow:hidden;box-shadow:0 0 32px rgba(201,168,76,0.25);
-    display:flex;flex-direction:column;}
+    display:flex;flex-direction:column;position:relative;z-index:1;}
   #finalStandingsBox .fs-header{flex:0 0 auto;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
     padding:14px 18px;text-align:center;font-weight:700;font-size:17px;
     letter-spacing:3px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
@@ -86,18 +96,12 @@
   #finalStandingsBox .fs-quit{flex:0 0 auto;display:block;width:calc(100% - 36px);margin:16px 18px 18px;
     font-size:13px;padding:10px 0;}
 
-  /* Confetti — TWO effects together (falling + burst), matching tv.html. */
+  /* Confetti — falling only (no more burst), matching tv.html. */
   .fsParticle{position:fixed;top:-16px;pointer-events:none;z-index:9999;
     animation:fsParticleFall var(--dur,2.5s) var(--delay,0s) ease-in forwards;}
   @keyframes fsParticleFall{0%{transform:translateX(0) rotate(0deg);opacity:1;}
     80%{opacity:1;}
     100%{transform:translateX(var(--sway,0px)) translateY(110vh) rotate(var(--rot,360deg));opacity:0;}}
-  .fsParticleBurst{position:fixed;width:7px;height:7px;border-radius:50%;pointer-events:none;
-    z-index:9999;top:50%;left:50%;transform:translate(-50%,-50%);
-    animation:fsParticleFly var(--dur,2s) var(--delay,0s) ease-out forwards;}
-  @keyframes fsParticleFly{0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
-    60%{opacity:0.8;}
-    100%{transform:translate(calc(-50% + var(--tx,0px)),calc(-50% + var(--ty,0px))) scale(0.3);opacity:0;}}
 
   /* Credits screen (phone) — same content/behavior as tv.html's, only ever
      shown via Final Standings' own Quit button. */
@@ -669,8 +673,10 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   });
 });
 
-// Victory confetti (phone) — TWO effects together, matching tv.html.
-function triggerVictoryConfettiFallPhone() {
+// Victory confetti (phone) — Bazinco's actual triggerPhoneVictory(),
+// copied exactly. No more burst (see tv.html for why — both Bazinco
+// screens actually rain confetti; there never was a burst to match).
+function triggerVictoryConfettiPhone() {
   const colors = ['#f5d878', '#e8bc55', '#c9972a', '#ffffff', '#ffe08a', '#ffcc00', '#a8d8ff', '#ff9d00', '#c8f0a0'];
   const particles = [];
   for (let i = 0; i < 100; i++) {
@@ -690,30 +696,6 @@ function triggerVictoryConfettiFallPhone() {
     particles.push(p);
   }
   setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 5000);
-}
-function triggerVictoryConfettiBurstPhone() {
-  const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
-  const particles = [];
-  for (let i = 0; i < 80; i++) {
-    const p = document.createElement('div');
-    p.className = 'fsParticleBurst';
-    p.style.left = (window.innerWidth / 2) + 'px';
-    p.style.top = (window.innerHeight / 2) + 'px';
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 100 + Math.random() * 250;
-    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
-    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
-    p.style.setProperty('--dur', (1.5 + Math.random() * 1.5) + 's');
-    p.style.setProperty('--delay', (Math.random() * 0.4) + 's');
-    p.style.background = colors[Math.floor(Math.random() * colors.length)];
-    document.body.appendChild(p);
-    particles.push(p);
-  }
-  setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 3500);
-}
-function triggerVictoryConfettiPhone() {
-  triggerVictoryConfettiFallPhone();
-  triggerVictoryConfettiBurstPhone();
 }
 
 // Phone's own Quit button (Final Standings): shows credits, then resets
