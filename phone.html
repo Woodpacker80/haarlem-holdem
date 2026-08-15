@@ -44,6 +44,25 @@
     border-radius:8px;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
   button:hover{background:rgba(201,168,76,0.15);}
   button.fold{border-color:#BE1622;color:#BE1622;}
+
+  /* Pot readout + Rules icon (phone) — fits phone's OWN existing visual
+     language instead of copying tv.html's boxed "chip badge" look, which
+     doesn't match anything else here: #seatBadge/#conn are plain colored
+     text with no box at all, and every real button on this screen (Fold,
+     actions, Quit) is transparent-with-border, never filled. Pot is a
+     passive readout, so it's styled like seatBadge/conn — plain text, no
+     card. Rules is a real button, so it just uses the native `button`
+     style already used everywhere else (only position/size overridden). */
+  #potBadgePhone{display:none;position:fixed;top:12px;right:14px;z-index:20;
+    color:#c9a84c;font-weight:600;font-size:13px;white-space:nowrap;}
+  #rulesIconBtnPhone{display:none;position:fixed;top:34px;right:14px;z-index:20;
+    font-size:10px;padding:5px 12px;}
+  #rulesSidebarPhone{position:fixed;inset:0;z-index:250;background:#0d1626;
+    display:none;flex-direction:column;overflow-y:auto;padding:20px;
+    -webkit-overflow-scrolling:touch;}
+  #rulesSidebarPhone.open{display:flex;}
+  #rulesSidebarPhone .rs-close{align-self:center;margin-bottom:14px;width:auto;
+    padding:8px 24px;font-size:12px;}
   button.fold:hover{background:rgba(190,22,34,0.15);}
   #others{font-size:12px;text-align:center;line-height:1.7;display:flex;flex-direction:column;align-items:center;gap:6px;}
   #preActionArea label{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
@@ -152,12 +171,94 @@
 </style>
 </head>
 <body>
-<div id="headerBlock" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+<div id="headerBlock" style="display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding-right:90px;box-sizing:border-box;">
+  <!-- padding-right reserves the same column the Pot badge/Rules icon sit
+       in (fixed, top-right, ~90px wide) — without it, a longer welcome
+       line (name included) runs underneath them once a game starts and
+       they show, confirmed via an actual render test before shipping. -->
   <h1 id="welcomeLine">Welcome to Haarlem Hold'em</h1>
   <div id="seatBadge">joining…</div>
   <div id="conn">connecting…</div>
 </div>
 <div id="error"></div>
+
+<div id="potBadgePhone"></div>
+<button id="rulesIconBtnPhone" type="button">Rules</button>
+<div id="rulesSidebarPhone">
+  <button class="rs-close" type="button" id="rulesCloseBtnPhone">✕ Close</button>
+  <div style="color:#c9a84c;font-weight:600;margin-bottom:6px;">Rules</div>
+  <div>Each player gets 2 hole cards, face-down, visible only on their own phone. Betting happens before
+    the flop, then after the flop (3 shared cards appear), the turn (1 more), and the river (1 more).
+    Best 5-card hand wins.</div>
+  <div style="margin-top:8px;">To view your own cards, press and drag upward on them — like squeezing real
+    cards to peek at the corner. Let go and they lie flat again. Nobody else can ever see them.</div>
+
+  <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Check/Fold &amp; Sit Out</div>
+  <div>Two checkboxes sit below your action buttons, always available:</div>
+  <div style="margin-top:4px;"><b>Check/Fold</b> — arm this and the game checks for you if nobody's bet, or
+    folds if someone has, the instant your turn arrives. Re-arms fresh every street, so it can never act on
+    cards you haven't seen yet. Uncheck it any time before your turn resolves to act normally instead.</div>
+  <div style="margin-top:4px;"><b>Sit Out</b> — you're still dealt real cards every hand, but automatically
+    fold the moment it's your turn — no need to wait for anything before stepping away. Stays on until you
+    turn it off yourself, even across hands.</div>
+
+  <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">Hand ranking, best to worst:</div>
+
+  <div style="margin-top:8px;"><b>1. Straight Flush</b> — 5 cards in a row, all the same suit<br>
+    <span class="card red">10♦</span><span class="card red">J♦</span><span class="card red">Q♦</span><span class="card red">K♦</span><span class="card red">A♦</span>
+    <span style="color:#7d8299;"> (a Royal Flush — the best possible straight flush)</span><br>
+    <span style="color:#7d8299;">Higher top card wins — a Jack-high straight flush beats a 9-high one.</span></div>
+
+  <div style="margin-top:10px;"><b>2. Four of a Kind</b> — 4 cards of the same rank<br>
+    <span class="card">7♠</span><span class="card red">7♥</span><span class="card red">7♦</span><span class="card">7♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">Higher rank wins — four Kings beats four Sevens.</span></div>
+
+  <div style="margin-top:10px;"><b>3. Full House</b> — 3 of a kind plus a pair<br>
+    <span class="card">K♠</span><span class="card red">K♥</span><span class="card red">K♦</span><span class="card">4♣</span><span class="card">4♠</span><br>
+    <span style="color:#7d8299;">The three-of-a-kind rank decides it first — Kings-full-of-Fours beats Nines-full-of-Aces.</span></div>
+
+  <div style="margin-top:10px;"><b>4. Flush</b> — 5 cards, all the same suit, not in order<br>
+    <span class="card">2♠</span><span class="card">6♠</span><span class="card">9♠</span><span class="card">J♠</span><span class="card">K♠</span><br>
+    <span style="color:#7d8299;">Compared card-by-card from highest down — the flush with the higher top card wins.</span></div>
+
+  <div style="margin-top:10px;"><b>5. Straight</b> — 5 cards in a row, mixed suits<br>
+    <span class="card red">4♥</span><span class="card">5♠</span><span class="card red">6♦</span><span class="card">7♣</span><span class="card">8♠</span><br>
+    <span style="color:#7d8299;">Higher top card wins — an 8-high straight beats a 7-high one.</span></div>
+
+  <div style="margin-top:10px;"><b>6. Three of a Kind</b> — 3 cards of the same rank<br>
+    <span class="card">9♠</span><span class="card red">9♥</span><span class="card red">9♦</span><span class="card">3♣</span><span class="card">K♠</span><br>
+    <span style="color:#7d8299;">Higher rank wins — three Nines beats three Fours.</span></div>
+
+  <div style="margin-top:10px;"><b>7. Two Pair</b> — 2 separate pairs<br>
+    <span class="card">J♠</span><span class="card red">J♥</span><span class="card red">5♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">The higher pair decides it first, then the lower pair.</span></div>
+
+  <div style="margin-top:10px;"><b>8. Pair</b> — 2 cards of the same rank<br>
+    <span class="card">Q♠</span><span class="card red">Q♥</span><span class="card red">7♦</span><span class="card">4♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">Higher pair wins — a pair of Queens beats a pair of Sevens.</span></div>
+
+  <div style="margin-top:10px;margin-bottom:14px;"><b>9. High Card</b> — no combination, highest single card wins<br>
+    <span class="card">A♠</span><span class="card red">K♥</span><span class="card red">9♦</span><span class="card">5♣</span><span class="card">2♠</span><br>
+    <span style="color:#7d8299;">If the top card ties, the next-highest card decides it, and so on.</span></div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Show or Muck</div>
+  <div>At showdown, you don't always have to reveal your cards. The player who bet or raised last has to
+    show first — everyone after that gets to choose Show or Muck. Mucking hides your hand for good — even
+    if it would have won, nobody ever sees it. Your secrets are safe, win or lose.</div>
+  <div style="margin-top:6px;color:#7d8299;">One exception: if a hand goes all the way to showdown with an
+    all-in on the table, everyone shows — no mucking, per standard rules.</div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Blinds &amp; Antes</div>
+  <div>Small and big blinds — plus a small ante every player puts in — increase automatically as the game
+    goes on, with a countdown shown on the TV and on your phone. This keeps the game moving and forces
+    decisions as stacks get tighter, standard for any real poker tournament.</div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Final Standings</div>
+  <div style="margin-bottom:20px;">If two or more players bust out in the very same hand, they still need a finishing order.
+    Per industry standard: whoever had more chips at the start of that hand finishes higher; if that's
+    also equal, the stronger hand at that showdown breaks the tie.</div>
+</div>
 
 <div id="nameGate" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:20px;">
   <div style="color:#c9a84c;font-size:14px;">What's your name?</div>
@@ -685,6 +786,13 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   });
 });
 
+document.getElementById('rulesIconBtnPhone').addEventListener('click', () => {
+  document.getElementById('rulesSidebarPhone').classList.add('open');
+});
+document.getElementById('rulesCloseBtnPhone').addEventListener('click', () => {
+  document.getElementById('rulesSidebarPhone').classList.remove('open');
+});
+
 // Victory confetti (phone) — Bazinco's actual triggerPhoneVictory(),
 // copied exactly. No more burst (see tv.html for why — both Bazinco
 // screens actually rain confetti; there never was a burst to match).
@@ -739,6 +847,8 @@ function render(state) {
     document.getElementById('board').innerHTML = '';
     document.getElementById('others').innerHTML = '';
     document.getElementById('finalStandingsScreen').classList.remove('show');
+    document.getElementById('potBadgePhone').style.display = 'none';
+    document.getElementById('rulesIconBtnPhone').style.display = 'none';
     return;
   }
   if (state.gameOverInfo) {
@@ -747,6 +857,8 @@ function render(state) {
     // keeps rendering the last hole card regardless of what text content
     // around it gets cleared) can't show through underneath anymore.
     document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('potBadgePhone').style.display = 'none';
+    document.getElementById('rulesIconBtnPhone').style.display = 'none';
     const medals = ['🥇', '🥈', '🥉'];
     const seatLabelPhone = (seat) => (playerNames[seat] && playerNames[seat].display) || `Seat ${seat + 1}`;
     const rows = state.gameOverInfo.standings.map((seat, i) => `
@@ -773,6 +885,18 @@ function render(state) {
   phoneConfettiFired = false; // reset once a genuinely new game is underway (gameOverInfo cleared)
   document.getElementById('finalStandingsScreen').classList.remove('show');
   document.getElementById('gameArea').style.display = 'flex';
+  // Pot badge + Rules icon — mirrors tv.html's own top-right corner header
+  // badges. Same pot formula tv.html uses (everything already committed in
+  // earlier completed streets, state.totalBets, plus this round's bets so
+  // far, state.bets — there's no single "pot" field to read directly).
+  // Both hidden while the Rules panel itself is open, same guard tv.html
+  // uses for its own Pot badge/Rules icon.
+  const rulesPanelOpenPhone = document.getElementById('rulesSidebarPhone').classList.contains('open');
+  const potNowPhone = Object.values(state.totalBets || {}).reduce((a, b) => a + b, 0)
+                     + Object.values(state.bets || {}).reduce((a, b) => a + b, 0);
+  document.getElementById('potBadgePhone').textContent = `Pot: ${potNowPhone}`;
+  document.getElementById('potBadgePhone').style.display = rulesPanelOpenPhone ? 'none' : 'block';
+  document.getElementById('rulesIconBtnPhone').style.display = rulesPanelOpenPhone ? 'none' : 'block';
   // BUG FIX: Firebase Realtime Database silently drops any field written as
   // an empty array (or empty object) — it treats [] as "no data" rather
   // than "an empty list". board and foldedSeats both start out empty
