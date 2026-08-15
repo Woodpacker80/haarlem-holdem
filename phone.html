@@ -189,6 +189,7 @@
        wrapping). This row is free to grow as wide as it needs. -->
   <div id="conn">connecting…</div>
   <h1 id="welcomeLine">Welcome to Haarlem Hold'em</h1>
+  <div id="playerNameLine" style="display:none;color:#c9a84c;font-weight:600;font-size:15px;"></div>
   <div id="seatBadge">joining…</div>
 </div>
 <div id="error"></div>
@@ -728,7 +729,9 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   const name = nameInput.value.trim();
   if (!name) { nameInput.focus(); return; } // no empty names allowed past this point
   currentName = name;
-  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em ${name}`;
+  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em`;
+  document.getElementById('playerNameLine').textContent = name;
+  document.getElementById('playerNameLine').style.display = 'block';
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
   resizeSqRenderer(); // #squeezeContainer was 0×0 while gameArea was hidden, so the very
