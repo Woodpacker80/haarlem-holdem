@@ -409,33 +409,48 @@
 </div>
 
 <div id="setupArea">
-  <div id="seatList">Waiting for players to join…</div>
-  <!-- Starting stack: 3 preset buttons, not free typing — auto-derives Big
-       Blind/Small Blind/Ante from whichever is selected (BB=stack/50,
-       SB=BB/2, Ante=BB*10%, matching real per-player-ante tournament
-       convention — verified against actual structure sheets, not guessed;
-       also happens to reproduce today's own exact 2500/50/25/5 defaults).
-       Plain <button> elements deliberately — the most universally
-       remote/D-pad-navigable interactive element there is, safer than a
-       custom control for an NVIDIA Shield's remote app specifically. -->
-  <div style="margin-top:6px;color:#7d8299;font-size:12px;">Starting stack</div>
-  <div id="stackPresetRow" style="display:flex;gap:10px;justify-content:center;margin-top:6px;">
-    <button type="button" class="stackPresetBtn" data-stack="2500" style="padding:8px 16px;font-size:13px;">2,500</button>
-    <button type="button" class="stackPresetBtn" data-stack="5000" style="padding:8px 16px;font-size:13px;">5,000</button>
-    <button type="button" class="stackPresetBtn" data-stack="7500" style="padding:8px 16px;font-size:13px;">7,500</button>
-  </div>
-  <div id="derivedBlindsPreview" style="margin-top:8px;color:#7d8299;font-size:12px;"></div>
-
-  <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin-top:12px;">
-    <div style="text-align:center;">
-      <div style="color:#7d8299;font-size:12px;margin-bottom:8px;">Scan to join on your phone</div>
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https%3A%2F%2Fwoodpacker80.github.io%2Fhaarlem-holdem%2Fphone.html"
-        alt="QR code to join on your phone"
-        style="width:140px;height:140px;box-sizing:border-box;border-radius:8px;border:2px solid #c9a84c;background:#fff;padding:8px;">
+  <div id="setupRow" style="display:flex;gap:56px;justify-content:center;align-items:flex-start;">
+    <!-- Left: QR + Start Game, back where they always were — nothing else
+         sits in this column anymore, so it's no longer pushed down by the
+         preset UI (that was the actual bug: adding rows ABOVE it in a
+         single centered column pushed everything below it down). -->
+    <div id="setupLeftCol" style="display:flex;align-items:center;gap:24px;margin-top:12px;">
+      <div style="text-align:center;">
+        <div style="color:#7d8299;font-size:12px;margin-bottom:8px;">Scan to join on your phone</div>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https%3A%2F%2Fwoodpacker80.github.io%2Fhaarlem-holdem%2Fphone.html"
+          alt="QR code to join on your phone"
+          style="width:140px;height:140px;box-sizing:border-box;border-radius:8px;border:2px solid #c9a84c;background:#fff;padding:8px;">
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:12px;margin-bottom:8px;visibility:hidden;">spacer</div>
+        <button id="startBtn" disabled>Start Game</button>
+      </div>
     </div>
-    <div style="text-align:center;">
-      <div style="font-size:12px;margin-bottom:8px;visibility:hidden;">spacer</div>
-      <button id="startBtn" disabled>Start Game</button>
+
+    <!-- Right: everything that used to sit in the single centered column
+         above the QR — Starting stack presets, then "Waiting for players"
+         text, then the actual joined-player list (now vertical, not the
+         old horizontal inline row, so up to 8 players stack cleanly
+         instead of wrapping across the width). -->
+    <div id="setupRightCol" style="text-align:center;width:220px;">
+      <div style="color:#7d8299;font-size:12px;">Starting stack</div>
+      <!-- 3 preset buttons, not free typing — auto-derives Big Blind/Small
+           Blind/Ante from whichever is selected (BB=stack/50, SB=BB/2,
+           Ante=BB*10%, matching real per-player-ante tournament
+           convention — verified against actual structure sheets, not
+           guessed; also happens to reproduce the game's own original
+           2500/50/25/5 defaults exactly). Plain <button> elements
+           deliberately — the most universally remote/D-pad-navigable
+           interactive element there is. -->
+      <div id="stackPresetRow" style="display:flex;gap:8px;justify-content:center;margin-top:6px;">
+        <button type="button" class="stackPresetBtn" data-stack="2500" style="padding:8px 12px;font-size:12px;">2,500</button>
+        <button type="button" class="stackPresetBtn" data-stack="5000" style="padding:8px 12px;font-size:12px;">5,000</button>
+        <button type="button" class="stackPresetBtn" data-stack="7500" style="padding:8px 12px;font-size:12px;">7,500</button>
+      </div>
+      <div id="derivedBlindsPreview" style="margin-top:6px;color:#7d8299;font-size:12px;"></div>
+
+      <div id="seatListHeading" style="margin-top:16px;color:#7d8299;font-size:12px;">Waiting for players to join…</div>
+      <div id="seatList"></div>
     </div>
   </div>
 </div>
@@ -1245,17 +1260,25 @@ watchSeats((seats) => {
   currentSeats = seats;
   const count = Object.keys(seats).length;
   const seatListEl = document.getElementById('seatList');
+  const seatListHeadingEl = document.getElementById('seatListHeading');
   if (count === 0) {
-    seatListEl.textContent = 'Waiting for players to join…';
+    seatListHeadingEl.textContent = 'Waiting for players to join…';
+    seatListEl.innerHTML = '';
   } else {
+    seatListHeadingEl.textContent = 'Joined:';
+    // Vertical list now (was a horizontal inline row) — Mark wanted room
+    // for up to 8 players stacked top-to-bottom in join order (seat number
+    // already reflects join order under normal play — first to join gets
+    // the lowest available seat), each with its own Kick button beside it,
+    // rather than wrapping across the width like the old inline layout did.
     seatListEl.innerHTML = Object.entries(seats)
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([seatStr, uid]) => `
-        <span style="display:inline-flex;align-items:center;gap:6px;margin:0 10px;">
-          ${seatLabel(Number(seatStr))}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0;">
+          <span>${seatLabel(Number(seatStr))}</span>
           <button class="kickBtn" data-seat="${seatStr}" data-uid="${uid}"
             style="font-size:11px;padding:3px 8px;">Kick</button>
-        </span>`).join('');
+        </div>`).join('');
     seatListEl.querySelectorAll('.kickBtn').forEach((btn) => {
       btn.addEventListener('click', () => {
         kickSeat(btn.dataset.uid, Number(btn.dataset.seat));
@@ -1436,7 +1459,8 @@ async function quitToLobby() {
   document.getElementById('startNewGameBtn').style.display = 'block';
   document.getElementById('conn').style.display = 'block';
   document.getElementById('setupArea').style.display = 'block';
-  document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
+  document.getElementById('seatListHeading').textContent = 'Waiting for players to join…';
+  document.getElementById('seatList').innerHTML = '';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
   document.getElementById('rulesIconBtn').style.display = 'none';
@@ -1489,7 +1513,8 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   document.getElementById('startNewGameBtn').style.display = 'block';
   document.getElementById('conn').style.display = 'block';
   document.getElementById('setupArea').style.display = 'block';
-  document.getElementById('seatList').innerHTML = 'Waiting for players to join…';
+  document.getElementById('seatListHeading').textContent = 'Waiting for players to join…';
+  document.getElementById('seatList').innerHTML = '';
   document.getElementById('startBtn').disabled = true;
   document.getElementById('potBadge').style.display = 'none';
   document.getElementById('rulesIconBtn').style.display = 'none';
