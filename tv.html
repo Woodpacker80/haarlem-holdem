@@ -391,6 +391,11 @@
       goes on, with a countdown shown on the TV and on your phone. This keeps the game moving and forces
       decisions as stacks get tighter, standard for any real poker tournament.</div>
 
+    <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Final Standings</div>
+    <div>If two or more players bust out in the very same hand, they still need a finishing order.
+      Per industry standard: whoever had more chips at the start of that hand finishes higher; if that's
+      also equal, the stronger hand at that showdown breaks the tie.</div>
+
     <div style="color:#c9a84c;font-weight:600;margin:16px 0 6px;">About Haarlem Hold'em</div>
     <div>Designed and built in Haarlem, the Netherlands, 2026.</div>
     <div style="margin-top:10px;font-weight:600;color:#e9e2cf;">The Team</div>
@@ -646,12 +651,14 @@ function dealOrderFromDealer(dealerSeat, numSeats, activeSeats) {
   }
   return order;
 }
-// Victory confetti — falling only (Bazinco's real triggerJumbotronVictory(),
-// copied exactly: 200 particles raining from the top across the width of
-// the screen). No more burst — confirmed both Bazinco screens actually
-// rain confetti; the burst was a misread of the base .jmb-particle CSS
-// class in isolation, without noticing triggerJumbotronVictory() overrides
-// its position via inline styles to make it fall like the phone version.
+// Victory confetti — falling, adapted from Bazinco's triggerJumbotronVictory()
+// (spawn/motion math copied from there) but the spawn range is Haarlem's own:
+// Bazinco's jumbotron reserves its own left ~228px column for a "Live
+// Standings" sidebar, so ITS confetti deliberately starts at 30% left to
+// avoid raining on that reserved column. Haarlem Hold'em has no such
+// reserved column — the whole screen is usable — so copying that same
+// 30-100% range verbatim left the left third of the screen empty (caught
+// via Mark's own testing). Full 0-100% width here instead.
 function triggerVictoryConfetti() {
   const colors = ['#f5d878', '#e8bc55', '#c9972a', '#ffffff', '#ffe08a', '#ffcc00', '#a8d8ff', '#ff9d00', '#c8f0a0'];
   const particles = [];
@@ -664,7 +671,7 @@ function triggerVictoryConfetti() {
     const delay = (Math.random() * 2.5).toFixed(2);
     const color = colors[Math.floor(Math.random() * colors.length)];
     const size = 6 + Math.floor(Math.random() * 8);
-    p.style.cssText = `left:${30 + Math.random() * 70}%;--sway:${sway}px;--rot:${rot}deg;--dur:${dur}s;--delay:${delay}s;`
+    p.style.cssText = `left:${Math.random() * 100}%;--sway:${sway}px;--rot:${rot}deg;--dur:${dur}s;--delay:${delay}s;`
       + `background:${color};width:${size}px;height:${size}px;`
       + `border-radius:${Math.random() > 0.45 ? '50%' : '3px'};`;
     document.body.appendChild(p);
@@ -1029,12 +1036,40 @@ function startNewHand() {
 
 function dealNextHand() {
   SFX.unlock();
+  // Starting-of-hand stacks — needed for the same-hand tiebreak below,
+  // since gameConfig.stacks is about to be overwritten with the END-of-hand
+  // stacks on the very next line.
+  const startingStacks = { ...gameConfig.stacks };
   gameConfig.stacks = handState.stacks;
-  // Record who busted THIS hand, in seat order, before filtering them out —
-  // this is the one moment we still know who just went to 0. Two players
-  // can bust in the same hand (a multi-way all-in); they're recorded
-  // together here with no tiebreak between them, in ascending seat order.
+  // Record who busted THIS hand, before filtering them out — this is the
+  // one moment we still know who just went to 0. Two or more players can
+  // bust in the same hand (a multi-way all-in); Mark asked to follow the
+  // industry-standard tournament rule for that (confirmed via WSOP/WPT/
+  // Winning Poker Network/APL rulebook research — all consistent): rank
+  // by whoever had MORE CHIPS AT THE START of that hand; if that's also
+  // tied, by hand strength at that showdown. A genuinely full tie beyond
+  // both of those falls back to seat order — vanishingly rare, not worth
+  // more complexity for a home game.
+  // Sorted WORST-to-BEST here (ascending), because eliminationOrder gets
+  // reversed later when building final standings — the LAST entry in a
+  // same-hand batch ends up appearing FIRST (highest rank) after that
+  // reversal, so the best-of-these-ties needs to be pushed last.
   const bustedThisHand = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] <= 0);
+  if (bustedThisHand.length > 1) {
+    const ranking = handState.result && handState.result.ranking; // best-to-worst groups of {seat,hand}, null if this hand was uncontested (no real showdown)
+    const handRankIndex = seat => {
+      if (!ranking) return Infinity; // no showdown data — treat as worst rather than assume the best possible hand
+      const idx = ranking.findIndex(group => group.some(e => e.seat === seat));
+      return idx === -1 ? Infinity : idx; // not found (folded before showdown) — same reasoning
+    };
+    bustedThisHand.sort((a, b) => {
+      const stackDiff = startingStacks[a] - startingStacks[b]; // smaller starting stack (worse) first
+      if (stackDiff !== 0) return stackDiff;
+      const rankDiff = handRankIndex(b) - handRankIndex(a); // higher index = worse hand = first
+      if (rankDiff !== 0) return rankDiff;
+      return b - a; // final fallback, arbitrary but deterministic
+    });
+  }
   gameConfig.eliminationOrder.push(...bustedThisHand);
   gameConfig.activeSeats = gameConfig.activeSeats.filter(s => gameConfig.stacks[s] > 0);
   if (gameConfig.activeSeats.length < 2) {
@@ -1277,6 +1312,11 @@ document.getElementById('rulesSidebar').innerHTML = `
 
   <div style="margin-top:6px;"><b>Leaderboard</b> — ranks every player by their current chip count, for this
     session only.</div>
+
+  <div style="color:#c9a84c;font-weight:600;margin:14px 0 6px;">Final Standings</div>
+  <div>If two or more players bust out in the very same hand, they still need a finishing order.
+    Per industry standard: whoever had more chips at the start of that hand finishes higher; if that's
+    also equal, the stronger hand at that showdown breaks the tie.</div>
 
   <div style="color:#c9a84c;font-weight:600;margin:16px 0 6px;">About Haarlem Hold'em</div>
   <div>Designed and built in Haarlem, the Netherlands, 2026.</div>
@@ -1679,16 +1719,23 @@ function render() {
   // requiring that click before Final Standings/confetti even appear made
   // the whole moment "fall flat" — the fix is to never show the button for
   // this specific hand and auto-advance instead, once, after a pause long
-  // enough to actually take the last hand in (started at 2.5s, doubled
-  // twice to 10s per Mark's testing feedback — worth trimming down later
-  // once it's clear how it actually feels live).
+  // enough to actually take the last hand in.
+  // Delay is DYNAMIC now, not a flat number: 10s base (started at 2.5s,
+  // doubled twice per Mark's first round of testing) plus 4s per side pot
+  // beyond the main one — more side pots means more separate reveal lines
+  // to actually read ("Side Pot 2: 400 — Won by Hank with Two Pair"), and
+  // that takes real time in a social setting with chatter/reactions, not
+  // just silent reading. Both numbers are starting points Mark expects to
+  // tune down once he's seen it play out live a few more times.
   const isGameEndingHand = handComplete
     && gameConfig.activeSeats.filter(s => h.stacks[s] > 0).length < 2;
   if (isGameEndingHand && !autoAdvanceTriggered) {
     autoAdvanceTriggered = true;
+    const sidePotCount = Math.max(0, ((h.result && h.result.pots) || []).length - 1);
+    const advanceDelay = 10000 + sidePotCount * 4000;
     setTimeout(() => {
       if (!gameOverInfo && gameConfig) dealNextHand();
-    }, 10000);
+    }, advanceDelay);
   }
   document.getElementById('statusLine').textContent = h.result
     ? 'Hand complete'
