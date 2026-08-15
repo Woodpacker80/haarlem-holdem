@@ -6,7 +6,7 @@
 <title>Haarlem Hold'em — TV (Host)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;padding:0;background:#0F2A55;color:#e9e2cf;font-family:'Montserrat',-apple-system,sans-serif;}
   #appRoot{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;
@@ -51,28 +51,34 @@
      table felt anymore, which was overlapping the finished hand's leftover
      board/action-log/seat text and reading too small/unprominent). Mirrors
      Bazinco's dedicated Final Results screen presence.
-     Box now grows to use the full available vertical space (up to 92vh)
-     before ever shrinking text for more players — header and Quit stay
-     pinned in place; only the row list scrolls, and only if it has to. */
-  /* Final Standings — full-screen takeover overlay (not crammed into the
-     table felt anymore, which was overlapping the finished hand's leftover
-     board/action-log/seat text and reading too small/unprominent). Mirrors
-     Bazinco's dedicated Final Results screen presence.
      Background is Bazinco's ACTUAL jumbotron screen background — a near-
      black radial "spotlight" gradient plus a faint diagonal texture — not
      the app's normal navy #0F2A55 (that was a real mismatch, confirmed via
      side-by-side screenshot).
+     Persistent "HAARLEM HOLD'EM" title bar mirrors Bazinco's own separate
+     56px header row (its "BAZINCO!" logo lives there, not inside the
+     results panel itself) — top-aligned box below it, not centered,
+     matching Bazinco's `justify-content:flex-start;margin-top:30px`.
      Box grows to use the full available vertical space (up to 92vh) before
      ever shrinking text for more players — header and Quit stay pinned in
      place; only the row list scrolls, and only if it has to. */
   #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
-    align-items:center;justify-content:center;overflow:hidden;
+    flex-direction:column;overflow:hidden;
     background:radial-gradient(ellipse at 50% 35%,#0e2244 0%,#040c1a 70%);}
   #finalStandingsScreen::before{content:'';position:absolute;inset:0;
-    background-image:repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.015) 4px,rgba(255,255,255,0.015) 8px);
+    background-image:
+      repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.01) 4px,rgba(255,255,255,0.01) 8px),
+      repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(255,255,255,0.018) 3px,rgba(255,255,255,0.018) 6px),
+      repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 6px);
     pointer-events:none;}
   #finalStandingsScreen.show{display:flex;}
-  #finalStandingsBox{width:100%;max-width:480px;max-height:92vh;margin:0 24px;
+  .fs-titlebar{flex:0 0 auto;padding:16px 0;text-align:center;position:relative;z-index:1;}
+  .fs-titletext{font-family:'Cinzel',serif;font-size:22px;font-weight:900;letter-spacing:6px;
+    background:linear-gradient(160deg,#f5d878,#c9a84c);-webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;background-clip:text;}
+  .fs-boxWrap{flex:1 1 auto;display:flex;justify-content:center;align-items:flex-start;
+    padding-top:30px;overflow:hidden;position:relative;z-index:1;}
+  #finalStandingsBox{width:100%;max-width:480px;max-height:calc(92vh - 88px);margin:0 24px;
     background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:18px;
     overflow:hidden;box-shadow:0 0 40px rgba(201,168,76,0.25);
     display:flex;flex-direction:column;position:relative;z-index:1;}
@@ -1506,11 +1512,12 @@ function renderFinalStandingsScreen() {
       <div class="fs-name">${seatLabel(seat)}</div>
     </div>`).join('');
   const screen = document.getElementById('finalStandingsScreen');
-  screen.innerHTML = `<div id="finalStandingsBox">
+  screen.innerHTML = `<div class="fs-titlebar"><span class="fs-titletext">HAARLEM HOLD'EM</span></div>
+  <div class="fs-boxWrap"><div id="finalStandingsBox">
     <div class="fs-header">🏆 FINAL STANDINGS</div>
     <div class="fs-rows">${rows}</div>
     <button id="finalStandingsQuitBtn" class="fs-quit">Quit</button>
-  </div>`;
+  </div></div>`;
   screen.classList.add('show');
   document.getElementById('finalStandingsQuitBtn').addEventListener('click', quitAfterCredits);
   // Explicitly hidden here rather than relying on the overlay's opacity to

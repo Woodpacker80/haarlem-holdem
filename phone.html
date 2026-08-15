@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Haarlem Hold'em — Phone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
 <script src="sfx.js"></script>
 <script src="card-art.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -59,26 +61,32 @@
     padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;
     -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 
-  /* Final Standings (phone) — full-screen takeover, same as tv.html's
-     #finalStandingsScreen (same background color too — was mistakenly
-     green/felt-themed before since it only lived inside #gameArea's own
-     styled container, rather than truly covering the screen).
-     Box grows to use full available height (up to 92vh) before ever
-     shrinking text — header/Quit stay pinned, only rows scroll if needed. */
   /* Final Standings (phone) — full-screen takeover, matching tv.html's
      ACTUAL Bazinco background (near-black radial spotlight + diagonal
      texture — the plain navy #0F2A55 before was a real mismatch, confirmed
      via side-by-side screenshot against Bazinco's own jumbotron screen).
+     Persistent "HAARLEM HOLD'EM" title bar mirrors Bazinco's own separate
+     header row; box sits top-aligned below it, matching Bazinco's
+     `justify-content:flex-start;margin-top:30px` (not centered).
      Box grows to use full available height (up to 92vh) before ever
      shrinking text — header/Quit stay pinned, only rows scroll if needed. */
   #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
-    align-items:center;justify-content:center;overflow:hidden;
+    flex-direction:column;overflow:hidden;
     background:radial-gradient(ellipse at 50% 35%,#0e2244 0%,#040c1a 70%);}
   #finalStandingsScreen::before{content:'';position:absolute;inset:0;
-    background-image:repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.015) 4px,rgba(255,255,255,0.015) 8px);
+    background-image:
+      repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(255,255,255,0.01) 4px,rgba(255,255,255,0.01) 8px),
+      repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(255,255,255,0.018) 3px,rgba(255,255,255,0.018) 6px),
+      repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 6px);
     pointer-events:none;}
   #finalStandingsScreen.show{display:flex;}
-  #finalStandingsBox{width:100%;max-width:340px;max-height:92vh;
+  .fs-titlebar{flex:0 0 auto;padding:14px 0;text-align:center;position:relative;z-index:1;}
+  .fs-titletext{font-family:'Cinzel',serif;font-size:16px;font-weight:900;letter-spacing:3px;
+    background:linear-gradient(160deg,#f5d878,#c9a84c);-webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;background-clip:text;}
+  .fs-boxWrap{flex:1 1 auto;display:flex;justify-content:center;align-items:flex-start;
+    padding-top:24px;overflow:hidden;position:relative;z-index:1;}
+  #finalStandingsBox{width:100%;max-width:340px;max-height:calc(92vh - 70px);margin:0 20px;
     background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:16px;
     overflow:hidden;box-shadow:0 0 32px rgba(201,168,76,0.25);
     display:flex;flex-direction:column;position:relative;z-index:1;}
@@ -743,11 +751,12 @@ function render(state) {
         <div class="fs-name">${seatLabelPhone(seat)}</div>
       </div>`).join('');
     const screen = document.getElementById('finalStandingsScreen');
-    screen.innerHTML = `<div id="finalStandingsBox">
+    screen.innerHTML = `<div class="fs-titlebar"><span class="fs-titletext">HAARLEM HOLD'EM</span></div>
+    <div class="fs-boxWrap"><div id="finalStandingsBox">
       <div class="fs-header">🏆 FINAL STANDINGS</div>
       <div class="fs-rows">${rows}</div>
       <button id="finalStandingsQuitBtnPhone" class="fs-quit">Quit</button>
-    </div>`;
+    </div></div>`;
     screen.classList.add('show');
     document.getElementById('finalStandingsQuitBtnPhone').addEventListener('click', quitAfterCreditsPhone);
     if (!phoneConfettiFired) {
