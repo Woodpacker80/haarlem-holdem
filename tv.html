@@ -47,25 +47,32 @@
     box-sizing:border-box;font-size:12px;line-height:1.65;color:#c9c4b0;}
   #rulesIconBtn{position:fixed;top:54px;z-index:20;font-size:11px;padding:5px 12px;display:none;}
   .badgeDark{background:rgba(0,0,0,0.28);}
-  #finalStandingsBox{width:320px;margin:0 auto;background:rgba(0,0,0,0.35);
-    border:2px solid #c9a84c;border-radius:14px;overflow:hidden;
-    box-shadow:0 0 28px rgba(201,168,76,0.2);}
+  /* Final Standings — full-screen takeover overlay (not crammed into the
+     table felt anymore, which was overlapping the finished hand's leftover
+     board/action-log/seat text and reading too small/unprominent). Mirrors
+     Bazinco's dedicated Final Results screen presence. */
+  #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
+    align-items:center;justify-content:center;background:#0F2A55;}
+  #finalStandingsScreen.show{display:flex;}
+  #finalStandingsBox{width:100%;max-width:480px;margin:0 24px;background:rgba(0,0,0,0.35);
+    border:2px solid #c9a84c;border-radius:18px;overflow:hidden;
+    box-shadow:0 0 40px rgba(201,168,76,0.25);}
   #finalStandingsBox .fs-header{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
-    padding:10px 16px;text-align:center;font-weight:700;font-size:13px;
-    letter-spacing:3px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
-  #finalStandingsBox .fs-row{display:flex;align-items:center;gap:12px;
-    padding:9px 16px;border-bottom:1px solid rgba(255,255,255,0.08);}
+    padding:18px 24px;text-align:center;font-weight:700;font-size:22px;
+    letter-spacing:4px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
+  #finalStandingsBox .fs-row{display:flex;align-items:center;gap:18px;
+    padding:16px 26px;border-bottom:1px solid rgba(255,255,255,0.08);}
   #finalStandingsBox .fs-row:last-child{border-bottom:none;}
   #finalStandingsBox .fs-row.fs-1st{background:linear-gradient(90deg,rgba(245,216,120,0.16),rgba(201,168,76,0.05));}
-  #finalStandingsBox .fs-medal{font-size:18px;min-width:26px;text-align:center;}
-  #finalStandingsBox .fs-name{flex:1;font-size:14px;font-weight:600;color:#e9e2cf;text-align:left;}
+  #finalStandingsBox .fs-medal{font-size:32px;min-width:46px;text-align:center;}
+  #finalStandingsBox .fs-name{flex:1;font-size:22px;font-weight:600;color:#e9e2cf;text-align:left;}
   #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
-  #finalStandingsBox .fs-quit{display:block;width:calc(100% - 32px);margin:14px 16px 16px;
-    font-size:12px;padding:9px 0;}
+  #finalStandingsBox .fs-quit{display:block;width:calc(100% - 52px);margin:20px 26px 26px;
+    font-size:14px;padding:12px 0;}
 
   /* Victory confetti — adapted from Bazinco's jumbotron particle burst */
-  .fsParticle{position:absolute;width:8px;height:8px;border-radius:50%;pointer-events:none;
-    top:50%;left:50%;transform:translate(-50%,-50%);
+  .fsParticle{position:fixed;width:8px;height:8px;border-radius:50%;pointer-events:none;
+    z-index:210;top:50%;left:50%;transform:translate(-50%,-50%);
     animation:fsParticleFly var(--dur,2s) var(--delay,0s) ease-out forwards;}
   @keyframes fsParticleFly{0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
     60%{opacity:0.8;}
@@ -387,6 +394,9 @@
   <div id="leaderboardSidebar"></div>
   <div id="rulesSidebar"></div>
 
+  <!-- Final Standings — full-screen takeover, populated by render(). -->
+  <div id="finalStandingsScreen"></div>
+
   <!-- Credits screen — only ever shown via Final Standings' own Quit
        button, never the lobby/mid-game Quit Game button. -->
   <div id="creditsScreen">
@@ -600,11 +610,13 @@ function dealOrderFromDealer(dealerSeat, numSeats, activeSeats) {
   return order;
 }
 // Victory confetti — adapted from Bazinco's triggerJumbotronVictory(): 150
-// gold-toned particles burst outward from the center of the oval table and
-// fade over ~2-3s. Fires exactly once per game-over (see gameOverConfettiFired).
+// gold-toned particles burst outward from the center of the VIEWPORT (not
+// #ovalTable — that's now covered by the full-screen Final Standings
+// overlay, so particles are fixed-positioned and appended to <body>,
+// same approach as phone.html's version) and fade over ~2-3s. Fires
+// exactly once per game-over (see gameOverConfettiFired).
 function triggerVictoryConfetti() {
   const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
-  const container = document.getElementById('ovalTable');
   const particles = [];
   for (let i = 0; i < 150; i++) {
     const p = document.createElement('div');
@@ -616,7 +628,7 @@ function triggerVictoryConfetti() {
     p.style.setProperty('--dur', (1.5 + Math.random() * 1.5) + 's');
     p.style.setProperty('--delay', (Math.random() * 0.4) + 's');
     p.style.background = colors[Math.floor(Math.random() * colors.length)];
-    container.appendChild(p);
+    document.body.appendChild(p);
     particles.push(p);
   }
   setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 3500);
@@ -1301,6 +1313,7 @@ async function quitToLobby() {
   document.getElementById('rulesSidebar').classList.remove('open');
   document.getElementById('leaderboardSidebar').innerHTML = '';
   document.getElementById('dealerButton')?.remove();
+  document.getElementById('finalStandingsScreen').classList.remove('show');
 }
 
 // Final Standings' own Quit button: credits screen first (7s, matching
@@ -1353,6 +1366,7 @@ document.getElementById('startNewGameBtn').addEventListener('click', async () =>
   document.getElementById('rulesSidebar').classList.remove('open');
   document.getElementById('leaderboardSidebar').innerHTML = '';
   document.getElementById('dealerButton')?.remove();
+  document.getElementById('finalStandingsScreen').classList.remove('show');
 });
 
 // Burn-card tension effect: whenever the board has grown beyond what's
@@ -1456,9 +1470,44 @@ function seatCardsHtml(h, seat) {
   return cardBackHtml(2);
 }
 
+// Final Standings — full-screen takeover (see render()'s early-return for
+// why this replaces the old resultArea-only approach). Medals for top 3,
+// plain numbers below; no extra stat next to each name (poker has no
+// equivalent to a running score — see the conversation where this was
+// decided). Confetti fires exactly once per game-over via gameOverConfettiFired.
+function renderFinalStandingsScreen() {
+  const medals = ['🥇', '🥈', '🥉'];
+  const rows = gameOverInfo.standings.map((seat, i) => `
+    <div class="fs-row${i === 0 ? ' fs-1st' : ''}">
+      <div class="fs-medal">${medals[i] || (i + 1) + '.'}</div>
+      <div class="fs-name">${seatLabel(seat)}</div>
+    </div>`).join('');
+  const screen = document.getElementById('finalStandingsScreen');
+  screen.innerHTML = `<div id="finalStandingsBox">
+    <div class="fs-header">🏆 FINAL STANDINGS</div>
+    ${rows}
+    <button id="finalStandingsQuitBtn" class="fs-quit">Quit</button>
+  </div>`;
+  screen.classList.add('show');
+  document.getElementById('finalStandingsQuitBtn').addEventListener('click', quitAfterCredits);
+  if (!gameOverConfettiFired) {
+    gameOverConfettiFired = true;
+    triggerVictoryConfetti();
+  }
+}
+
 function render() {
   if (!handState) return;
   const h = handState;
+  if (gameOverInfo) {
+    // Full-screen takeover — completely bypasses the rest of this function,
+    // so none of the just-finished hand's board/action-log/seat text can
+    // ever bleed through underneath it (that was the actual bug: the old
+    // approach only overwrote #resultArea, while everything else in this
+    // function kept rendering the last hand normally).
+    renderFinalStandingsScreen();
+    return;
+  }
 
   // Check/Fold pre-selection: clear every seat's armed state the instant a
   // new street begins, so an old decision never silently reaches forward
@@ -1896,42 +1945,13 @@ function render() {
     resultArea.innerHTML = '';
     hostControls.innerHTML = '';
   }
-  if (gameOverInfo) {
-    // Overrides whatever the branch above just set — this takes priority
-    // and persists across every future render() call for this game, unlike
-    // the one-off message dealNextHand() used to write directly (which the
-    // very next render() would silently overwrite again).
-    // Styled after Bazinco's jumbotron Final Standings box — gold-bordered
-    // list, medals for top 3, plain numbers below that. No stat next to
-    // each name (poker has no equivalent to a running score); rank is the
-    // only number shown.
-    const medals = ['🥇', '🥈', '🥉'];
-    const rows = gameOverInfo.standings.map((seat, i) => `
-      <div class="fs-row${i === 0 ? ' fs-1st' : ''}">
-        <div class="fs-medal">${medals[i] || (i + 1) + '.'}</div>
-        <div class="fs-name">${seatLabel(seat)}</div>
-      </div>`).join('');
-    resultArea.innerHTML = `<div id="finalStandingsBox">
-      <div class="fs-header">🏆 FINAL STANDINGS</div>
-      ${rows}
-      <button id="finalStandingsQuitBtn" class="fs-quit">Quit</button>
-    </div>`;
-    document.getElementById('finalStandingsQuitBtn').addEventListener('click', quitAfterCredits);
-    if (!gameOverConfettiFired) {
-      gameOverConfettiFired = true;
-      triggerVictoryConfetti();
-    }
-    hostControls.innerHTML = '';
-  }
 
   // Deal Next Hand sits to the right of "Hand complete" — measured against
   // its ACTUAL rendered position rather than a guessed offset, so it moves
   // correctly regardless of font size or exact text width, and clamped so
   // it can never end up past the oval's own rim.
   const nextHandBtn2 = document.getElementById('nextHandBtn2');
-  if (gameOverInfo) {
-    nextHandBtn2.style.display = 'none';
-  } else if (handComplete) {
+  if (handComplete) {
     const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
     const statusRect = document.getElementById('statusLine').getBoundingClientRect();
     const desiredLeft = statusRect.right + 20;
