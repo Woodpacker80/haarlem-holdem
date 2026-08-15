@@ -13,7 +13,8 @@
   html,body{margin:0;padding:0;height:100%;background:#0F2A55;color:#e9e2cf;
     font-family:'Montserrat',-apple-system,sans-serif;display:flex;flex-direction:column;
     align-items:center;justify-content:flex-start;gap:16px;padding:20px;}
-  h1{font-size:14px;letter-spacing:.06em;color:#c9a84c;text-transform:uppercase;margin:0;}
+  h1{font-size:14px;letter-spacing:.06em;color:#c9a84c;text-transform:uppercase;margin:0;
+    white-space:nowrap;}
   .sub{font-size:11px;color:#7d8299;text-align:center;max-width:320px;line-height:1.5;margin:0;}
   #conn{font-size:10px;letter-spacing:.05em;text-transform:uppercase;}
   #conn.bad{color:#BE1622;} #conn.good{color:#3fbf6f;}
@@ -169,23 +170,25 @@
 </style>
 </head>
 <body>
-<!-- Same width:100%/max-width:340px/margin:auto centering trick #gameArea
-     uses — guarantees this row's left edge lines up with the game
-     window's left edge exactly, regardless of viewport width, rather than
-     guessing a pixel offset. -->
-<div id="statusRow" style="width:100%;max-width:340px;margin:0 auto;text-align:left;">
+<!-- Everything left-aligned now, all sharing #gameArea's own
+     width:100%/max-width:340px/margin:auto centering trick so every line
+     (CONNECTED, the welcome message, the name, the seat line) starts at
+     exactly the same X as the game window's left edge — Mark's explicit
+     ask, replacing the earlier centered layout. -->
+<div id="statusRow" style="align-self:flex-start;margin-left:16px;
+  display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+  <!-- align-self:flex-start opts this OUT of body's own
+       align-items:center (body is itself a flex column, with its own
+       20px padding) — margin-left:16px then matches the SAME auto-margin
+       #gameArea gets from being centered while narrower than its
+       372px-wide container ((372-340)/2=16), so this row's left edge
+       lines up with #gameArea's left edge exactly, without forcing this
+       row to ALSO be capped at #gameArea's 340px width (that combination,
+       tried first, left only 3px of slack for the merged welcome+name
+       line and any 8-char name — the real max length — tipped it into
+       wrapping). This row is free to grow as wide as it needs. -->
   <div id="conn">connecting…</div>
-</div>
-<div id="headerBlock" style="display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding:0 90px;box-sizing:border-box;">
-  <!-- Symmetric padding, not padding-RIGHT only — a right-only pad clears
-       the corner badges but shifts the whole centering axis left, which is
-       exactly why a wrapped second line (the name) looked stranded on the
-       left instead of centered — confirmed via Mark's own screenshot.
-       Matching padding on the left (nothing to clear there) keeps the
-       visual center anchored at the true screen center instead. -->
   <h1 id="welcomeLine">Welcome to Haarlem Hold'em</h1>
-  <div id="playerNameLine" style="display:none;color:#c9a84c;font-weight:600;font-size:15px;"></div>
   <div id="seatBadge">joining…</div>
 </div>
 <div id="error"></div>
@@ -725,9 +728,7 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   const name = nameInput.value.trim();
   if (!name) { nameInput.focus(); return; } // no empty names allowed past this point
   currentName = name;
-  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em`;
-  document.getElementById('playerNameLine').textContent = name;
-  document.getElementById('playerNameLine').style.display = 'block';
+  document.getElementById('welcomeLine').textContent = `Welcome to Haarlem Hold'em ${name}`;
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('gameArea').style.display = 'flex';
   resizeSqRenderer(); // #squeezeContainer was 0×0 while gameArea was hidden, so the very
