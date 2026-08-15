@@ -59,13 +59,23 @@
     padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;
     -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 
-  /* Final Standings (phone) — mirrors tv.html's box at phone width */
-  #finalStandingsBox{width:100%;max-width:340px;background:rgba(0,0,0,0.35);
-    border:2px solid #c9a84c;border-radius:16px;overflow:hidden;
-    box-shadow:0 0 32px rgba(201,168,76,0.25);}
-  #finalStandingsBox .fs-header{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
+  /* Final Standings (phone) — full-screen takeover, same as tv.html's
+     #finalStandingsScreen (same background color too — was mistakenly
+     green/felt-themed before since it only lived inside #gameArea's own
+     styled container, rather than truly covering the screen).
+     Box grows to use full available height (up to 92vh) before ever
+     shrinking text — header/Quit stay pinned, only rows scroll if needed. */
+  #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
+    align-items:center;justify-content:center;background:#0F2A55;}
+  #finalStandingsScreen.show{display:flex;}
+  #finalStandingsBox{width:100%;max-width:340px;max-height:92vh;
+    background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:16px;
+    overflow:hidden;box-shadow:0 0 32px rgba(201,168,76,0.25);
+    display:flex;flex-direction:column;}
+  #finalStandingsBox .fs-header{flex:0 0 auto;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
     padding:14px 18px;text-align:center;font-weight:700;font-size:17px;
     letter-spacing:3px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
+  #finalStandingsBox .fs-rows{flex:1 1 auto;overflow-y:auto;}
   #finalStandingsBox .fs-row{display:flex;align-items:center;gap:14px;
     padding:13px 18px;border-bottom:1px solid rgba(255,255,255,0.08);}
   #finalStandingsBox .fs-row:last-child{border-bottom:none;}
@@ -73,12 +83,17 @@
   #finalStandingsBox .fs-medal{font-size:26px;min-width:36px;text-align:center;}
   #finalStandingsBox .fs-name{flex:1;font-size:18px;font-weight:600;color:#e9e2cf;text-align:left;}
   #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
-  #finalStandingsBox .fs-quit{display:block;width:calc(100% - 36px);margin:16px 18px 18px;
+  #finalStandingsBox .fs-quit{flex:0 0 auto;display:block;width:calc(100% - 36px);margin:16px 18px 18px;
     font-size:13px;padding:10px 0;}
 
-  /* Confetti — same particle approach as tv.html, scoped to the phone's own viewport */
-  .fsParticle{position:fixed;width:7px;height:7px;border-radius:50%;pointer-events:none;
-    top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;
+  /* Confetti — TWO effects together (falling + burst), matching tv.html. */
+  .fsParticle{position:fixed;top:-16px;pointer-events:none;z-index:9999;
+    animation:fsParticleFall var(--dur,2.5s) var(--delay,0s) ease-in forwards;}
+  @keyframes fsParticleFall{0%{transform:translateX(0) rotate(0deg);opacity:1;}
+    80%{opacity:1;}
+    100%{transform:translateX(var(--sway,0px)) translateY(110vh) rotate(var(--rot,360deg));opacity:0;}}
+  .fsParticleBurst{position:fixed;width:7px;height:7px;border-radius:50%;pointer-events:none;
+    z-index:9999;top:50%;left:50%;transform:translate(-50%,-50%);
     animation:fsParticleFly var(--dur,2s) var(--delay,0s) ease-out forwards;}
   @keyframes fsParticleFly{0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
     60%{opacity:0.8;}
@@ -147,9 +162,15 @@
 <div id="preActionArea" style="text-align:center;width:100%;"></div>
 <div id="others"></div>
 <div id="resultBox"></div>
-<div id="finalStandingsArea" style="width:100%;display:none;"></div>
 </div>
 <div id="debug" style="font-size:9px;color:#3a3f52;max-width:340px;word-break:break-all;margin-top:20px;"></div>
+
+<!-- Final Standings — full-screen takeover, populated by render(). Moved
+     OUT of #gameArea's flex flow (used to just live inside it as a hidden
+     child, which meant #gameArea and its 3D squeeze canvas stayed visible
+     underneath — confirmed via screenshot: last hole card still showing
+     through, box pushed low/cut off by the flex layout above it). -->
+<div id="finalStandingsScreen"></div>
 
 <!-- Credits screen — only shown via Final Standings' own Quit button here,
      never on any other reset path. -->
@@ -648,14 +669,34 @@ document.getElementById('joinBtn').addEventListener('click', async () => {
   });
 });
 
-// Victory confetti (phone) — same particle approach as tv.html, but scoped
-// to the phone's own viewport since there's no shared #ovalTable here.
-function triggerVictoryConfettiPhone() {
-  const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
+// Victory confetti (phone) — TWO effects together, matching tv.html.
+function triggerVictoryConfettiFallPhone() {
+  const colors = ['#f5d878', '#e8bc55', '#c9972a', '#ffffff', '#ffe08a', '#ffcc00', '#a8d8ff', '#ff9d00', '#c8f0a0'];
   const particles = [];
-  for (let i = 0; i < 80; i++) { // fewer than tv.html's 150 — smaller screen, no need for as dense a burst
+  for (let i = 0; i < 100; i++) {
     const p = document.createElement('div');
     p.className = 'fsParticle';
+    const leftPct = Math.round(Math.random() * 100);
+    const sway = Math.round((Math.random() - 0.5) * 80);
+    const rot = Math.round(180 + Math.random() * 360) * (Math.random() > 0.5 ? 1 : -1);
+    const dur = (2.0 + Math.random() * 1.8).toFixed(2);
+    const delay = (Math.random() * 2.0).toFixed(2);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const size = 6 + Math.floor(Math.random() * 7);
+    p.style.cssText = `left:${leftPct}%;--sway:${sway}px;--rot:${rot}deg;--dur:${dur}s;--delay:${delay}s;`
+      + `background:${color};width:${size}px;height:${size}px;`
+      + `border-radius:${Math.random() > 0.45 ? '50%' : '2px'};`;
+    document.body.appendChild(p);
+    particles.push(p);
+  }
+  setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 5000);
+}
+function triggerVictoryConfettiBurstPhone() {
+  const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
+  const particles = [];
+  for (let i = 0; i < 80; i++) {
+    const p = document.createElement('div');
+    p.className = 'fsParticleBurst';
     p.style.left = (window.innerWidth / 2) + 'px';
     p.style.top = (window.innerHeight / 2) + 'px';
     const angle = Math.random() * Math.PI * 2;
@@ -670,6 +711,10 @@ function triggerVictoryConfettiPhone() {
   }
   setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 3500);
 }
+function triggerVictoryConfettiPhone() {
+  triggerVictoryConfettiFallPhone();
+  triggerVictoryConfettiBurstPhone();
+}
 
 // Phone's own Quit button (Final Standings): shows credits, then resets
 // ONLY this phone's own local view back to the name-entry screen — it
@@ -681,10 +726,10 @@ function quitAfterCreditsPhone() {
   document.getElementById('creditsScreen').classList.add('show');
   setTimeout(() => {
     document.getElementById('creditsScreen').classList.remove('show');
+    document.getElementById('finalStandingsScreen').classList.remove('show');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('nameGate').style.display = 'flex';
     document.getElementById('nameInput').value = '';
-    document.getElementById('finalStandingsArea').style.display = 'none';
     document.getElementById('seatBadge').textContent = 'joining…';
     currentName = null;
     mySeat = null;
@@ -699,20 +744,15 @@ function render(state) {
     document.getElementById('actions').innerHTML = '';
     document.getElementById('board').innerHTML = '';
     document.getElementById('others').innerHTML = '';
-    document.getElementById('finalStandingsArea').style.display = 'none';
+    document.getElementById('finalStandingsScreen').classList.remove('show');
     return;
   }
   if (state.gameOverInfo) {
-    // Mirrors tv.html's Final Standings box — same medals/no-extra-stat
-    // design. Hides the rest of gameArea (board/actions/etc.) since the
-    // hand that just finished is moot once the whole game is over.
-    document.getElementById('board').innerHTML = '';
-    document.getElementById('info').textContent = '';
-    document.getElementById('squeezeStackReadout').textContent = '';
-    document.getElementById('actions').innerHTML = '';
-    document.getElementById('preActionArea').innerHTML = '';
-    document.getElementById('others').innerHTML = '';
-    document.getElementById('resultBox').innerHTML = '';
+    // Full-screen takeover — hides #gameArea ENTIRELY (not just its
+    // children's innerHTML) so the persistent 3D squeeze canvas (which
+    // keeps rendering the last hole card regardless of what text content
+    // around it gets cleared) can't show through underneath anymore.
+    document.getElementById('gameArea').style.display = 'none';
     const medals = ['🥇', '🥈', '🥉'];
     const seatLabelPhone = (seat) => (playerNames[seat] && playerNames[seat].display) || `Seat ${seat + 1}`;
     const rows = state.gameOverInfo.standings.map((seat, i) => `
@@ -720,13 +760,13 @@ function render(state) {
         <div class="fs-medal">${medals[i] || (i + 1) + '.'}</div>
         <div class="fs-name">${seatLabelPhone(seat)}</div>
       </div>`).join('');
-    const fsArea = document.getElementById('finalStandingsArea');
-    fsArea.style.display = 'block';
-    fsArea.innerHTML = `<div id="finalStandingsBox">
+    const screen = document.getElementById('finalStandingsScreen');
+    screen.innerHTML = `<div id="finalStandingsBox">
       <div class="fs-header">🏆 FINAL STANDINGS</div>
-      ${rows}
+      <div class="fs-rows">${rows}</div>
       <button id="finalStandingsQuitBtnPhone" class="fs-quit">Quit</button>
     </div>`;
+    screen.classList.add('show');
     document.getElementById('finalStandingsQuitBtnPhone').addEventListener('click', quitAfterCreditsPhone);
     if (!phoneConfettiFired) {
       phoneConfettiFired = true;
@@ -735,7 +775,8 @@ function render(state) {
     return;
   }
   phoneConfettiFired = false; // reset once a genuinely new game is underway (gameOverInfo cleared)
-  document.getElementById('finalStandingsArea').style.display = 'none';
+  document.getElementById('finalStandingsScreen').classList.remove('show');
+  document.getElementById('gameArea').style.display = 'flex';
   // BUG FIX: Firebase Realtime Database silently drops any field written as
   // an empty array (or empty object) — it treats [] as "no data" rather
   // than "an empty list". board and foldedSeats both start out empty

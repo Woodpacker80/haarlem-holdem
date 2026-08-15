@@ -50,16 +50,21 @@
   /* Final Standings — full-screen takeover overlay (not crammed into the
      table felt anymore, which was overlapping the finished hand's leftover
      board/action-log/seat text and reading too small/unprominent). Mirrors
-     Bazinco's dedicated Final Results screen presence. */
+     Bazinco's dedicated Final Results screen presence.
+     Box now grows to use the full available vertical space (up to 92vh)
+     before ever shrinking text for more players — header and Quit stay
+     pinned in place; only the row list scrolls, and only if it has to. */
   #finalStandingsScreen{position:fixed;inset:0;z-index:200;display:none;
     align-items:center;justify-content:center;background:#0F2A55;}
   #finalStandingsScreen.show{display:flex;}
-  #finalStandingsBox{width:100%;max-width:480px;margin:0 24px;background:rgba(0,0,0,0.35);
-    border:2px solid #c9a84c;border-radius:18px;overflow:hidden;
-    box-shadow:0 0 40px rgba(201,168,76,0.25);}
-  #finalStandingsBox .fs-header{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
+  #finalStandingsBox{width:100%;max-width:480px;max-height:92vh;margin:0 24px;
+    background:rgba(0,0,0,0.35);border:2px solid #c9a84c;border-radius:18px;
+    overflow:hidden;box-shadow:0 0 40px rgba(201,168,76,0.25);
+    display:flex;flex-direction:column;}
+  #finalStandingsBox .fs-header{flex:0 0 auto;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(201,168,76,0.05));
     padding:18px 24px;text-align:center;font-weight:700;font-size:22px;
     letter-spacing:4px;color:#e9c976;border-bottom:1px solid rgba(201,168,76,0.3);}
+  #finalStandingsBox .fs-rows{flex:1 1 auto;overflow-y:auto;}
   #finalStandingsBox .fs-row{display:flex;align-items:center;gap:18px;
     padding:16px 26px;border-bottom:1px solid rgba(255,255,255,0.08);}
   #finalStandingsBox .fs-row:last-child{border-bottom:none;}
@@ -67,12 +72,20 @@
   #finalStandingsBox .fs-medal{font-size:32px;min-width:46px;text-align:center;}
   #finalStandingsBox .fs-name{flex:1;font-size:22px;font-weight:600;color:#e9e2cf;text-align:left;}
   #finalStandingsBox .fs-row.fs-1st .fs-name{color:#f5d878;}
-  #finalStandingsBox .fs-quit{display:block;width:calc(100% - 52px);margin:20px 26px 26px;
+  #finalStandingsBox .fs-quit{flex:0 0 auto;display:block;width:calc(100% - 52px);margin:20px 26px 26px;
     font-size:14px;padding:12px 0;}
 
-  /* Victory confetti — adapted from Bazinco's jumbotron particle burst */
-  .fsParticle{position:fixed;width:8px;height:8px;border-radius:50%;pointer-events:none;
-    z-index:210;top:50%;left:50%;transform:translate(-50%,-50%);
+  /* Victory confetti — TWO effects fire together on Final Standings, per
+     Mark's request to keep both: falling confetti (Bazinco's phone style —
+     sways/rotates down from the top) AND a burst (Bazinco's jumbotron
+     style — particles fly outward from center). */
+  .fsParticle{position:fixed;top:-16px;pointer-events:none;z-index:9999;
+    animation:fsParticleFall var(--dur,2.5s) var(--delay,0s) ease-in forwards;}
+  @keyframes fsParticleFall{0%{transform:translateX(0) rotate(0deg);opacity:1;}
+    80%{opacity:1;}
+    100%{transform:translateX(var(--sway,0px)) translateY(110vh) rotate(var(--rot,360deg));opacity:0;}}
+  .fsParticleBurst{position:fixed;width:8px;height:8px;border-radius:50%;pointer-events:none;
+    z-index:9999;top:50%;left:50%;transform:translate(-50%,-50%);
     animation:fsParticleFly var(--dur,2s) var(--delay,0s) ease-out forwards;}
   @keyframes fsParticleFly{0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
     60%{opacity:0.8;}
@@ -609,18 +622,36 @@ function dealOrderFromDealer(dealerSeat, numSeats, activeSeats) {
   }
   return order;
 }
-// Victory confetti — adapted from Bazinco's triggerJumbotronVictory(): 150
-// gold-toned particles burst outward from the center of the VIEWPORT (not
-// #ovalTable — that's now covered by the full-screen Final Standings
-// overlay, so particles are fixed-positioned and appended to <body>,
-// same approach as phone.html's version) and fade over ~2-3s. Fires
-// exactly once per game-over (see gameOverConfettiFired).
-function triggerVictoryConfetti() {
+// Victory confetti — TWO effects together, per Mark's request to keep
+// both: falling confetti (Bazinco's real triggerPhoneVictory(), copied
+// exactly) AND the original burst (Bazinco's triggerJumbotronVictory()).
+function triggerVictoryConfettiFall() {
+  const colors = ['#f5d878', '#e8bc55', '#c9972a', '#ffffff', '#ffe08a', '#ffcc00', '#a8d8ff', '#ff9d00', '#c8f0a0'];
+  const particles = [];
+  for (let i = 0; i < 100; i++) {
+    const p = document.createElement('div');
+    p.className = 'fsParticle';
+    const leftPct = Math.round(Math.random() * 100);
+    const sway = Math.round((Math.random() - 0.5) * 80);
+    const rot = Math.round(180 + Math.random() * 360) * (Math.random() > 0.5 ? 1 : -1);
+    const dur = (2.0 + Math.random() * 1.8).toFixed(2);
+    const delay = (Math.random() * 2.0).toFixed(2);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const size = 6 + Math.floor(Math.random() * 7);
+    p.style.cssText = `left:${leftPct}%;--sway:${sway}px;--rot:${rot}deg;--dur:${dur}s;--delay:${delay}s;`
+      + `background:${color};width:${size}px;height:${size}px;`
+      + `border-radius:${Math.random() > 0.45 ? '50%' : '2px'};`;
+    document.body.appendChild(p);
+    particles.push(p);
+  }
+  setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 5000);
+}
+function triggerVictoryConfettiBurst() {
   const colors = ['#c9a84c', '#e9c976', '#f5d878', '#fff'];
   const particles = [];
   for (let i = 0; i < 150; i++) {
     const p = document.createElement('div');
-    p.className = 'fsParticle';
+    p.className = 'fsParticleBurst';
     const angle = Math.random() * Math.PI * 2;
     const dist = 150 + Math.random() * 400;
     p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
@@ -632,6 +663,10 @@ function triggerVictoryConfetti() {
     particles.push(p);
   }
   setTimeout(() => particles.forEach(p => p.parentNode && p.parentNode.removeChild(p)), 3500);
+}
+function triggerVictoryConfetti() {
+  triggerVictoryConfettiFall();
+  triggerVictoryConfettiBurst();
 }
 
 function playDealingAnimation(onComplete) {
@@ -1485,7 +1520,7 @@ function renderFinalStandingsScreen() {
   const screen = document.getElementById('finalStandingsScreen');
   screen.innerHTML = `<div id="finalStandingsBox">
     <div class="fs-header">🏆 FINAL STANDINGS</div>
-    ${rows}
+    <div class="fs-rows">${rows}</div>
     <button id="finalStandingsQuitBtn" class="fs-quit">Quit</button>
   </div>`;
   screen.classList.add('show');
