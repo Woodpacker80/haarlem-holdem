@@ -650,7 +650,8 @@ function clearBlindLevelTimer() {
 let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
-let allInAnimated = {}; // which seats have already had their chip-pile-to-center animation fire THIS hand
+let betPileAmount = {}; // seat -> current-street amount their chip pile last rendered, so it regenerates only when that amount actually changes (a re-raise call, etc.) rather than every render
+let lastActionType = {}; // seat -> 'check'/'call'/'raise'/'fold', set in the watchActionQueue handler; decides instant-appear (call/check) vs a travel build-up (raise, or any all-in) for that seat's NEXT chip pile
 let foldedCardsAnimated = {}; // which seats have already had their fold-to-table fan animation fire THIS hand
 let payoutAnimated = {}; // which seats have already had their payout chip-shove-outward animation fire THIS hand
 let allInPilesCleared = false; // whether this hand's leftover all-in piles have been swept away yet, ahead of payout piles appearing
@@ -794,41 +795,104 @@ let gameOverInfo = null;
 let gameOverConfettiFired = false; // guards the confetti burst to fire exactly once per game-over, not on every render()
 let autoAdvanceTriggered = false; // guards the game-ending-hand auto-advance (see isGameEndingHand in render()) to fire exactly once per hand, reset in startNewHand()
 
-// Same 10-stack arrangement and edge-spot styling as the lobby artwork
-// (position, base/stroke, spot A, spot B, chip count) — just re-scaled down
-// to fit as a small, animated in-game element instead of a static banner.
-function buildAllInChipsSVG() {
-  const stacks = [
-    [418, 220, '#f3ecd8', '#c9a84c', '#050505', '#c9a84c', 6],
-    [432, 245, '#050505', '#2a2a2a', '#ffffff', '#FF1744', 4],
-    [472, 251, '#050505', '#2a2a2a', '#ffffff', '#FF1744', 4],
-    [499, 258, '#050505', '#2a2a2a', '#ffffff', '#FF1744', 4],
-    [453, 190, '#f3ecd8', '#c9a84c', '#050505', '#c9a84c', 6],
-    [466, 210, '#00C853', '#00842f', '#ffffff', '#00842f', 4],
-    [506, 216, '#00C853', '#00842f', '#ffffff', '#00842f', 4],
-    [546, 222, '#00C853', '#00842f', '#ffffff', '#00842f', 4],
-    [526, 245, '#FF1744', '#a30d29', '#ffffff', '#050505', 4],
-    [566, 251, '#FF1744', '#a30d29', '#ffffff', '#050505', 4],
-  ];
-  const rx = 23, ry = 8.5, layerGap = 7;
-  const offsetX = 395, offsetY = 155; // normalizes the lobby's coordinates to a tight (0,0)-based box
-  let inner = '';
-  for (const [cx, cyBase, fill, stroke, spotA, spotB, layers] of stacks) {
-    for (let i = 0; i < layers; i++) {
-      const cy = cyBase - i * layerGap;
-      const x = cx - offsetX, y = cy - offsetY;
-      const ringRx = rx * 0.85, ringRy = ry * 0.85, innerRx = rx * 0.62, innerRy = ry * 0.62;
-      const sw = rx * 0.13, dash = rx * 0.2;
-      inner += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`;
-      inner += `<ellipse cx="${x}" cy="${y}" rx="${ringRx.toFixed(1)}" ry="${ringRy.toFixed(1)}" fill="none" stroke="${spotA}" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash.toFixed(1)} ${dash.toFixed(1)}"/>`;
-      inner += `<ellipse cx="${x}" cy="${y}" rx="${ringRx.toFixed(1)}" ry="${ringRy.toFixed(1)}" fill="none" stroke="${spotB}" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash.toFixed(1)} ${dash.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"/>`;
-      inner += `<ellipse cx="${x}" cy="${y}" rx="${innerRx.toFixed(1)}" ry="${innerRy.toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+// Five denomination tiers for EVERY chip pile in the game now — ordinary
+// bets, calls, raises, all-ins, and payouts alike. Each tier's value is a
+// MULTIPLE of the CURRENT small blind (not a fixed number), so the same 5
+// colors work unchanged at every stack preset (2,500/5,000/7,500) and every
+// later blind level. 4x between each tier: with 5 tiers, the top tier lands
+// at 4^4=256x the small blind, which stays safely under the game's real
+// chip ceiling (8 players x max 7,500 stack = 60,000) at every preset —
+// confirmed against a 5x/6-tier version that was tried first and rejected,
+// since its top tier would have needed MORE chips than exist in the entire
+// game to ever appear. Colors/edge-spots finalized after live comparison
+// (green's edge color went through several rejected options — brown and
+// black both visually disappeared against the green fill; yellow was the
+// only one that actually read clearly).
+const CHIP_TIERS = [
+  { mult: 1,   fill: '#FF1744', stroke: '#a30d29', spotA: '#ffffff', spotB: '#050505' }, // red
+  { mult: 4,   fill: '#1565C0', stroke: '#0D47A1', spotA: '#ffffff', spotB: '#c9a84c' }, // blue
+  { mult: 16,  fill: '#00C853', stroke: '#00842f', spotA: '#ffffff', spotB: '#FFD600' }, // green
+  { mult: 64,  fill: '#050505', stroke: '#2a2a2a', spotA: '#ffffff', spotB: '#FF1744' }, // black
+  { mult: 256, fill: '#7B1FA2', stroke: '#4A148C', spotA: '#ffffff', spotB: '#FF4081' }, // purple
+];
+
+// Breaks an amount into the FEWEST chips per tier, highest tier first — same
+// principle as a cashier making change, and deliberately NOT the "pile one
+// color taller every raise" look of cheap online poker software. A clean
+// multiple of one tier stays a single color; a second color only joins in
+// when there's genuine leftover. Each tier's count is naturally capped at 3
+// by this division (a 4th would already have been absorbed into the next
+// tier up), matching the "4x before it cashes up" rule. Raises/all-ins can
+// land on any integer (checked betting-round.js — no snapping to blind
+// multiples), so a tiny uncashable remainder can be left over; that's fine,
+// same as a real dealer "coloring up" approximately, and never shown as a
+// number anyway.
+function decomposeChipAmount(amount, smallBlind) {
+  let remaining = Math.max(0, Math.round(amount));
+  const result = [];
+  for (let i = CHIP_TIERS.length - 1; i >= 0; i--) {
+    const tierValue = CHIP_TIERS[i].mult * smallBlind;
+    if (tierValue <= 0) continue;
+    const count = Math.floor(remaining / tierValue);
+    if (count > 0) {
+      result.push({ tierIndex: i, count });
+      remaining -= count * tierValue;
     }
   }
-  // Displayed noticeably smaller than the old 4-stack version, which was
-  // already reported as too big — the viewBox stays true to the original
-  // proportions, only the rendered width/height shrinks.
-  return `<svg viewBox="0 0 194 112" width="62" height="36" style="display:block;">${inner}</svg>`;
+  return result;
+}
+
+// Draws ONE stack of `layers` chips at a local (cx,cy) origin — same
+// ellipse-ring construction (base fill, edge-spot rings, inner cap) every
+// chip in this game has always used, just pulled out into its own reusable
+// piece instead of being inlined once per hardcoded stack like the old
+// buildAllInChipsSVG was.
+function chipStackMarkup(cx, cy, fill, stroke, spotA, spotB, layers) {
+  const rx = 23, ry = 8.5, layerGap = 7;
+  let inner = '';
+  for (let i = 0; i < layers; i++) {
+    const y = cy - i * layerGap;
+    const ringRx = rx * 0.85, ringRy = ry * 0.85, innerRx = rx * 0.62, innerRy = ry * 0.62;
+    const sw = rx * 0.13, dash = rx * 0.2;
+    inner += `<ellipse cx="${cx}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`;
+    inner += `<ellipse cx="${cx}" cy="${y}" rx="${ringRx.toFixed(1)}" ry="${ringRy.toFixed(1)}" fill="none" stroke="${spotA}" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash.toFixed(1)} ${dash.toFixed(1)}"/>`;
+    inner += `<ellipse cx="${cx}" cy="${y}" rx="${ringRx.toFixed(1)}" ry="${ringRy.toFixed(1)}" fill="none" stroke="${spotB}" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash.toFixed(1)} ${dash.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"/>`;
+    inner += `<ellipse cx="${cx}" cy="${y}" rx="${innerRx.toFixed(1)}" ry="${innerRy.toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+  }
+  return inner;
+}
+
+// Hand-placed, staggered local positions for however many different-colored
+// stacks a decomposition needs (1 through 5) — a loose cluster, not a
+// straight row, matching the look the old fixed all-in graphic already
+// established (its 10 stacks were staggered, never gridded). Confirmed via
+// a rendered mockup that a rare 4-5 stack amount (mathematically possible
+// but uncommon — needs genuine leftover at every single tier) still reads
+// fine in this same denser style, so no separate design was needed for it.
+const PILE_SLOT_POSITIONS = [
+  [[60, 60]],
+  [[45, 65], [75, 55]],
+  [[35, 68], [60, 58], [85, 66]],
+  [[30, 70], [52, 60], [68, 60], [90, 70]],
+  [[25, 72], [45, 62], [60, 56], [75, 62], [95, 72]],
+];
+
+// The single function behind EVERY chip pile in the game now — ordinary
+// bets, calls, raises, all-ins, and pot payouts alike. Decomposes a real
+// amount into denominations, then lays out one stack per tier actually
+// used. Replaces buildAllInChipsSVG (one fixed hardcoded picture with no
+// concept of "amount") entirely — that function no longer exists.
+function buildChipPileSVG(amount, smallBlind) {
+  const breakdown = decomposeChipAmount(amount, smallBlind);
+  if (breakdown.length === 0) return '';
+  const slots = PILE_SLOT_POSITIONS[Math.min(breakdown.length, 5) - 1];
+  let inner = '';
+  breakdown.forEach(({ tierIndex, count }, i) => {
+    const tier = CHIP_TIERS[tierIndex];
+    const [cx, cy] = slots[i % slots.length];
+    inner += chipStackMarkup(cx, cy, tier.fill, tier.stroke, tier.spotA, tier.spotB, count);
+  });
+  return `<svg viewBox="0 0 120 100" width="56" height="46" style="display:block;">${inner}</svg>`;
 }
 let rankingSyncedForResult = false; // whether frozenRankOrder already reflects the CURRENT hand's own result
 watchPlayerNames((names) => { playerNames = names; render(); });
@@ -1171,7 +1235,8 @@ function startNewHand() {
   autoAdvanceTriggered = false;
   clearRevealTimer();
   clearVoluntaryTimer();
-  allInAnimated = {};
+  betPileAmount = {};
+  lastActionType = {};
   foldedCardsAnimated = {};
   payoutAnimated = {};
   allInPilesCleared = false;
@@ -1363,6 +1428,11 @@ watchActionQueue((key, request) => {
     } else {
       if (handState.result) return; // a betting action with no hand in progress — ignore
       handState = applyHandAction(handState, request.seat, request.action);
+      // Recorded so render()'s chip-pile logic knows whether THIS seat's
+      // next pile should be an instant appear (check/call) or a travel
+      // build-up (raise) — checked alongside stacks[seat]===0 there so an
+      // all-in call/raise always gets the build-up too, not just raises.
+      lastActionType[request.seat] = request.action.type;
       logEvent(formatAction(request.seat, request.action, handState.stacks[request.seat]));
       publish();
     }
@@ -1655,6 +1725,16 @@ function revealNextStep() {
   const actualBoardLen = h.board.length;
   if (revealedBoardLen >= actualBoardLen) { burnAnimationPending = false; return; }
   burnAnimationPending = true;
+  // Sweep every current-street chip pile into the pot right as the burn-card
+  // tension beat starts, for every street alike (flop/turn/river) — matches
+  // the lifecycle Mark described: chips stay parked at each seat for the
+  // whole betting round, then get swept away right before the NEXT street's
+  // cards show, so the new street starts genuinely empty. betPileAmount is
+  // cleared alongside the DOM elements so a seat betting the same amount
+  // again next street still gets a fresh pile, not a no-op (the check in
+  // render() only regenerates on an amount CHANGE).
+  document.querySelectorAll('.chipPile').forEach(el => el.remove());
+  betPileAmount = {};
   const alreadyShown = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
   document.getElementById('boardArea').innerHTML = alreadyShown + `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10♠</span>`;
   // First reveal is the flop (3 cards at once); every reveal after that is
@@ -1850,6 +1930,7 @@ function render() {
         }
         try {
           handState = applyHandAction(handState, actingSeat, action);
+          lastActionType[actingSeat] = action.type; // always check/fold here, never raise — see the other call site for why this matters
           logEvent(formatAction(actingSeat, action, handState.stacks[actingSeat]));
           publish();
         } catch (e) {
@@ -2075,34 +2156,59 @@ function render() {
     const folded = h.foldedSeats.includes(seat);
     const isActing = h.bettingRound && h.bettingRound.actingSeat === seat;
     const isAllIn = h.stacks[seat] === 0 && !folded;
-    // Don't fire this for the OTHER seat while it's still literally their
-    // turn to act — anyAllInThisHand goes true the instant one player
-    // shoves, before their opponent has even pressed Call. Without this
-    // guard, the opponent's chips (and cards, below) would animate/reveal
-    // immediately on the shove, before they'd made any decision at all.
-    // isAllIn itself is unaffected — the shover's own chips should still
-    // move the moment THEY shove, regardless of whose turn it is next.
     const stillWaitingOnThisSeat = h.bettingRound && h.bettingRound.actingSeat === seat;
-    if ((isAllIn || (anyAllInThisHand && !folded && !stillWaitingOnThisSeat)) && !allInAnimated[seat]) {
-      allInAnimated[seat] = true;
-      const pile = document.createElement('div');
-      pile.className = 'chipPile';
-      pile.style.left = signX + '%';
-      pile.style.top = signY + '%';
-      pile.innerHTML = buildAllInChipsSVG();
-      ovalTable.appendChild(pile);
-      // Only travel HALFWAY toward the center, not all the way — the
-      // midpoint between the seat and dead-center.
-      const halfwayX = (signX + 50) / 2, halfwayY = (signY + 50) / 2;
-      // Set the starting position first, THEN change it on the next paint —
-      // changing both in the same tick would skip the transition entirely,
-      // since the browser batches style changes before the first paint.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+    // Every bet/call/raise gets a real chip pile now, not just all-in
+    // shoves — this is the core of the feature. `currentBet` is this seat's
+    // CURRENT-STREET total only (never a running hand total — chips are
+    // "forgotten" into the pot once a street ends, per how real poker
+    // actually works, confirmed over several rounds of back-and-forth).
+    // Regenerated in place (new innerHTML, same element) whenever the
+    // amount itself changes — e.g. calling a re-raise — rather than only
+    // ever firing once like the old all-in-only flag did, since a bet pile
+    // genuinely needs to update mid-street, unlike an all-in which never
+    // changes again once it happens.
+    const currentBet = (h.bettingRound && h.bettingRound.bets[seat]) || 0;
+    if (currentBet > 0 && !folded && betPileAmount[seat] !== currentBet) {
+      betPileAmount[seat] = currentBet;
+      let pile = document.getElementById('chipPile-' + seat);
+      const isNewPile = !pile;
+      if (isNewPile) {
+        pile = document.createElement('div');
+        pile.id = 'chipPile-' + seat;
+        pile.className = 'chipPile';
+        pile.style.left = signX + '%';
+        pile.style.top = signY + '%';
+        ovalTable.appendChild(pile);
+      }
+      pile.innerHTML = buildChipPileSVG(currentBet, gameConfig.smallBlindAmount);
+      // Only a genuinely NEW pile travels — an amount change on an existing
+      // pile (re-raise call) just swaps its contents in place, already
+      // sitting at the halfway point from when it first appeared.
+      if (isNewPile) {
+        const halfwayX = (signX + 50) / 2, halfwayY = (signY + 50) / 2;
+        // Ordinary calls/checks (checks never reach here — currentBet is 0)
+        // snap straight to the halfway point with no travel, so the common
+        // case stays snappy hand after hand. A raise, or any all-in
+        // (isAllIn — covers a short-stacked call too, not just a raise),
+        // gets the same visible travel build-up the old all-in-only pile
+        // always had — the moments actually worth a beat of drama.
+        const isBigMoment = lastActionType[seat] === 'raise' || isAllIn;
+        if (isBigMoment) {
+          // Set the starting position first, THEN change it on the next
+          // paint — changing both in the same tick would skip the
+          // transition entirely, since the browser batches style changes
+          // before the first paint.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              pile.style.left = halfwayX + '%';
+              pile.style.top = halfwayY + '%';
+            });
+          });
+        } else {
           pile.style.left = halfwayX + '%';
           pile.style.top = halfwayY + '%';
-        });
-      });
+        }
+      }
     }
     // Folded cards: same halfway-to-center language as the all-in chip
     // shove above (same felt real estate, same visual grammar) — but face
@@ -2143,7 +2249,7 @@ function render() {
       payoutPile.className = 'chipPile';
       payoutPile.style.left = '50%';
       payoutPile.style.top = '50%';
-      payoutPile.innerHTML = buildAllInChipsSVG();
+      payoutPile.innerHTML = buildChipPileSVG(h.result.payouts[seat], gameConfig.smallBlindAmount);
       ovalTable.appendChild(payoutPile);
       // Rest mostly toward the winner's own seat (75% of the way there)
       // rather than stopping halfway — the halfway point sits right where
