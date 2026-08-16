@@ -652,7 +652,8 @@ let currentSeats = {}; // seatIndex -> uid, from watchSeats
 let playerNames = {}; // seatIndex -> {base, display}, from watchPlayerNames — persists across Quit Game / Start New Game on purpose
 let frozenRankOrder = []; // seats sorted by standings — updates the instant a hand's result appears, then stays frozen through the next hand's betting
 let betPileAmount = {}; // seat -> current-street amount their chip pile last rendered, so it regenerates only when that amount actually changes (a re-raise call, etc.) rather than every render
-let lastActionType = {}; // seat -> 'check'/'call'/'raise'/'fold', set in the watchActionQueue handler; decides instant-appear (call/check) vs a travel build-up (raise, or any all-in) for that seat's NEXT chip pile
+let pendingBetOverride = {}; // seat -> the bet amount a call/raise is ABOUT to produce, captured before applyHandAction can advance the street out from under it (see watchActionQueue) — render() falls back to this whenever the live bettingRound already reads 0 for a seat that just genuinely acted
+let lastActionType = {}; // seat -> 'check'/'call'/'raise'/'fold', set in the watchActionQueue handler. No longer used to decide the chip-pile animation (every new pile travels now, calls included) — kept in case it's useful again later (e.g. differentiating check vs fold for something else).
 let foldedCardsAnimated = {}; // which seats have already had their fold-to-table fan animation fire THIS hand
 let payoutAnimated = {}; // which seats have already had their payout chip-shove-outward animation fire THIS hand
 let allInPilesCleared = false; // whether this hand's leftover all-in piles have been swept away yet, ahead of payout piles appearing
@@ -1237,6 +1238,7 @@ function startNewHand() {
   clearRevealTimer();
   clearVoluntaryTimer();
   betPileAmount = {};
+  pendingBetOverride = {};
   lastActionType = {};
   foldedCardsAnimated = {};
   payoutAnimated = {};
@@ -1428,6 +1430,27 @@ watchActionQueue((key, request) => {
       applyVoluntaryReveal(request.seat, type === 'voluntaryShow' ? 'show' : 'muck');
     } else {
       if (handState.result) return; // a betting action with no hand in progress — ignore
+      // Capture what this seat's bet is ABOUT to become, BEFORE applying the
+      // action — the actual root cause behind "the last call before a
+      // street doesn't show chips": if this call/raise happens to CLOSE the
+      // betting round, applyHandAction immediately advances to a fresh
+      // street (new cards dealt, a brand-new bettingRound with bets reset
+      // to {}) in this SAME synchronous call. By the time render() runs
+      // afterward, h.bettingRound.bets[seat] already reads 0 for the very
+      // call that just happened — there's nothing left for the per-seat
+      // loop to even build a pile from. Captured here, from the OLD
+      // bettingRound (still the real one at this point), so render() has
+      // something correct to fall back to until the sweep clears it.
+      if (request.action.type === 'call' || request.action.type === 'raise') {
+        const oldBettingRound = handState.bettingRound;
+        if (request.action.type === 'raise') {
+          pendingBetOverride[request.seat] = request.action.amount;
+        } else {
+          const { toCall } = getLegalActions(oldBettingRound, request.seat);
+          const priorBet = oldBettingRound.bets[request.seat] || 0;
+          pendingBetOverride[request.seat] = priorBet + Math.min(toCall, oldBettingRound.stacks[request.seat]);
+        }
+      }
       handState = applyHandAction(handState, request.seat, request.action);
       // Recorded so render()'s chip-pile logic knows whether THIS seat's
       // next pile should be an instant appear (check/call) or a travel
@@ -1726,22 +1749,28 @@ function revealNextStep() {
   const actualBoardLen = h.board.length;
   if (revealedBoardLen >= actualBoardLen) { burnAnimationPending = false; return; }
   burnAnimationPending = true;
-  // Sweep every current-street chip pile into the pot right as the burn-card
-  // tension beat starts, for every street alike (flop/turn/river) — matches
-  // the lifecycle Mark described: chips stay parked at each seat for the
-  // whole betting round, then get swept away right before the NEXT street's
-  // cards show, so the new street starts genuinely empty. betPileAmount is
-  // cleared alongside the DOM elements so a seat betting the same amount
-  // again next street still gets a fresh pile, not a no-op (the check in
-  // render() only regenerates on an amount CHANGE).
-  document.querySelectorAll('.chipPile').forEach(el => el.remove());
-  betPileAmount = {};
   const alreadyShown = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
   document.getElementById('boardArea').innerHTML = alreadyShown + `<span class="burnCard" style="background-image:url(${burnCardBackUrl})">10♠</span>`;
   // First reveal is the flop (3 cards at once); every reveal after that is
   // exactly one card (turn, then river) — matches real street sizes.
   const stepTarget = revealedBoardLen === 0 ? Math.min(3, actualBoardLen) : Math.min(revealedBoardLen + 1, actualBoardLen);
   setTimeout(() => {
+    // REAL BUG FOUND AND FIXED (live feedback: "the last call before the
+    // flop/turn isn't animated"): this sweep used to run synchronously at
+    // the TOP of revealNextStep(), which itself gets called from INSIDE
+    // render() the instant a round-closing call advances the street. That
+    // meant the caller's final chip pile got created and swept away in the
+    // exact same synchronous pass — created and destroyed before the
+    // browser ever painted a single frame of it. Moving the sweep here,
+    // into the delayed reveal callback (the actual "next street's cards
+    // are about to show" moment, matching the lifecycle as literally
+    // described), gives it this function's own ~1.1s burn-card pause as a
+    // genuine visible window first. betPileAmount/pendingBetOverride are
+    // cleared alongside the DOM elements so a seat betting the same amount
+    // again next street still gets a fresh pile, not a no-op.
+    document.querySelectorAll('.chipPile').forEach(el => el.remove());
+    betPileAmount = {};
+    pendingBetOverride = {};
     revealedBoardLen = stepTarget;
     SFX.cardFlip();
     document.getElementById('boardArea').innerHTML = h.board.slice(0, revealedBoardLen).map(renderCard).join('');
@@ -2168,7 +2197,7 @@ function render() {
     // ever firing once like the old all-in-only flag did, since a bet pile
     // genuinely needs to update mid-street, unlike an all-in which never
     // changes again once it happens.
-    const currentBet = (h.bettingRound && h.bettingRound.bets[seat]) || 0;
+    const currentBet = ((h.bettingRound && h.bettingRound.bets[seat]) || pendingBetOverride[seat]) || 0;
     if (currentBet > 0 && !folded && betPileAmount[seat] !== currentBet) {
       betPileAmount[seat] = currentBet;
       let pile = document.getElementById('chipPile-' + seat);
@@ -2202,28 +2231,24 @@ function render() {
       // sitting at the halfway point from when it first appeared.
       if (isNewPile) {
         const halfwayX = (signX + 50) / 2, halfwayY = (signY + 50) / 2;
-        // Ordinary calls/checks (checks never reach here — currentBet is 0)
-        // snap straight to the halfway point with no travel, so the common
-        // case stays snappy hand after hand. A raise, or any all-in
-        // (isAllIn — covers a short-stacked call too, not just a raise),
-        // gets the same visible travel build-up the old all-in-only pile
-        // always had — the moments actually worth a beat of drama.
-        const isBigMoment = lastActionType[seat] === 'raise' || isAllIn;
-        if (isBigMoment) {
-          // Set the starting position first, THEN change it on the next
-          // paint — changing both in the same tick would skip the
-          // transition entirely, since the browser batches style changes
-          // before the first paint.
+        // Mark changed his mind on this: originally calls snapped straight
+        // to the halfway point (no travel) while only raises/all-ins got a
+        // visible slide. He tried it live and decided he wants every new
+        // pile — calls included — to travel, not just raises. So this is
+        // now unconditional: every genuinely new pile (blind post, call, or
+        // raise alike) gets the same slide from the seat to the halfway
+        // point; only a content-only update on an EXISTING pile (handled
+        // above via .pop) has nothing to travel from.
+        // Set the starting position first, THEN change it on the next
+        // paint — changing both in the same tick would skip the transition
+        // entirely, since the browser batches style changes before the
+        // first paint.
+        requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              pile.style.left = halfwayX + '%';
-              pile.style.top = halfwayY + '%';
-            });
+            pile.style.left = halfwayX + '%';
+            pile.style.top = halfwayY + '%';
           });
-        } else {
-          pile.style.left = halfwayX + '%';
-          pile.style.top = halfwayY + '%';
-        }
+        });
       }
     }
     // Folded cards: same halfway-to-center language as the all-in chip
