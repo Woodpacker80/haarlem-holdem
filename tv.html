@@ -518,6 +518,7 @@
       <div id="hostControls"></div>
     </div>
     <button id="nextHandBtn2" style="display:none;position:absolute;z-index:10;">Deal Next Hand</button>
+    <button id="dealFirstHandBtn" style="display:none;position:absolute;z-index:10;left:50%;top:50%;transform:translate(-50%,-50%);">Deal the First Hand</button>
   </div>
 </div>
 
@@ -1034,14 +1035,74 @@ function dealFirstHand() {
   document.getElementById('jumbo').style.display = 'block';
   requestAnimationFrame(positionPotBadge); // table isn't laid out until jumbo is actually visible
   requestAnimationFrame(compensateScrollbarWidth); // content height just changed a lot — scrollbar presence may have too
-  // Brief pause so players actually get to see/take in the table before the
-  // first card starts flying — without this, dealing began the instant the
-  // table appeared, too fast to register it had even shown up. Scales with
-  // player count: more seats to visually scan means more time needed. 2500ms
-  // baseline at 2 players, +667ms per player above that (8 players ≈ 6500ms
-  // total, +4000ms over baseline, per Mark's call).
-  const dealDelayMs = 2500 + Math.max(0, activeSeats.length - 2) * 667;
-  setTimeout(startNewHand, dealDelayMs);
+  // Let players actually see where they're seated and where the dealer
+  // button landed BEFORE any card flies — real bug found from the 4-player
+  // test: a flat/scaled timer alone didn't help, because seat signs and the
+  // dealer button previously only appeared once handState existed, which
+  // was the same instant dealing began. renderPreDealSeats() draws both
+  // straight from gameConfig, with no handState needed yet. The host then
+  // decides when everyone's ready via an explicit button, rather than a
+  // guessed delay.
+  requestAnimationFrame(renderPreDealSeats);
+  const dealFirstHandBtn = document.getElementById('dealFirstHandBtn');
+  dealFirstHandBtn.style.display = 'inline-block';
+  dealFirstHandBtn.onclick = () => {
+    dealFirstHandBtn.style.display = 'none';
+    startNewHand();
+  };
+}
+
+// Draws seat signs (name + starting stack, no cards yet) and the dealer
+// button using gameConfig alone — same angle/pixel math render() uses for
+// the real seat signs and dealer button, so nothing visually jumps once
+// the actual hand starts and render() takes over drawing this same table.
+// Only used for the pre-deal "look around the table" pause before the
+// first hand; every later hand already has all of this on screen via
+// render() throughout, so it's never needed again after the first click.
+function renderPreDealSeats() {
+  const ovalTable = document.getElementById('ovalTable');
+  if (!ovalTable || !gameConfig) return;
+  ovalTable.querySelectorAll('.seatSign').forEach(el => el.remove());
+  const seatOrder = [...gameConfig.activeSeats].sort((a, b) => a - b);
+  const N = seatOrder.length;
+  const tableRect = ovalTable.getBoundingClientRect();
+  seatOrder.forEach((seat, i) => {
+    const angleDeg = 90 + i * (360 / N);
+    const theta = (angleDeg * Math.PI) / 180;
+    const signX = 50 + 40 * Math.cos(theta), signY = 50 + 40 * Math.sin(theta);
+    const sign = document.createElement('div');
+    sign.className = 'seatSign';
+    sign.dataset.seat = seat;
+    sign.style.left = signX + '%';
+    sign.style.top = signY + '%';
+    sign.innerHTML = `
+      <div class="podName">${seatLabel(seat)}</div>
+      <div class="podCards"></div>
+      <div class="podStack">${gameConfig.stacks[seat]}</div>`;
+    ovalTable.appendChild(sign);
+    if (seat === gameConfig.dealerSeat && tableRect.width > 0 && tableRect.height > 0) {
+      // Same fixed-pixel-gap math as render()'s dealer button — see the
+      // comment there for why a percentage-radius approach doesn't work.
+      const DEALER_PIXEL_GAP = 57;
+      const seatPxX = tableRect.width * signX / 100, seatPxY = tableRect.height * signY / 100;
+      const centerPxX = tableRect.width / 2, centerPxY = tableRect.height / 2;
+      const dirPxX = centerPxX - seatPxX, dirPxY = centerPxY - seatPxY;
+      const dirPxLen = Math.hypot(dirPxX, dirPxY) || 1;
+      const dealerPxX = seatPxX + (dirPxX / dirPxLen) * DEALER_PIXEL_GAP;
+      const dealerPxY = seatPxY + (dirPxY / dirPxLen) * DEALER_PIXEL_GAP;
+      const dealerX = dealerPxX / tableRect.width * 100;
+      const dealerY = dealerPxY / tableRect.height * 100;
+      document.getElementById('dealerButton')?.remove();
+      const btn = document.createElement('div');
+      btn.id = 'dealerButton';
+      btn.className = 'dealerButton';
+      btn.innerHTML = buildDealerButtonSVG();
+      btn.style.left = dealerX + '%';
+      btn.style.top = dealerY + '%';
+      btn.dataset.seat = String(seat);
+      ovalTable.appendChild(btn);
+    }
+  });
 }
 
 // Anchors Pot's RIGHT edge to the game window's own measured right edge —
