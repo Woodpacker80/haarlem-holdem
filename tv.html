@@ -518,7 +518,7 @@
       <div id="hostControls"></div>
     </div>
     <button id="nextHandBtn2" style="display:none;position:absolute;z-index:10;">Deal Next Hand</button>
-    <button id="dealFirstHandBtn" style="display:none;position:absolute;z-index:10;">Deal First Hand<br><span style="font-size:0.7em;">(pre-flop)</span></button>
+    <button id="dealFirstHandBtn" style="display:none;position:absolute;z-index:10;">Deal First Hand</button>
   </div>
 </div>
 
@@ -1055,20 +1055,22 @@ function dealFirstHand() {
   };
 }
 
-// Same spot and look as "Deal Next Hand" (nextHandBtn2 in render()): sits to
-// the right of #statusLine's actual rendered position, vertically centered
-// on it, clamped so it can never end up past the oval's own rim. Kept as its
-// own function (rather than inlined) since it must also run once up front
-// from dealFirstHand(), before any handState/render() call exists yet.
+// Same spot and look as "Deal Next Hand" (nextHandBtn2 in render()). Note
+// this can't reuse nextHandBtn2's exact formula unmodified: that formula
+// measures out from #statusLine's REAL rendered width, but that width only
+// exists once a hand's action log/board/pot content is also on screen
+// pushing it wide. Pre-deal, statusLine is empty and alone in #tableCenter,
+// so it sits narrow and centered — anchoring to it lands this button near
+// the oval's middle instead of out toward the rim. Anchor directly to the
+// same right-side clamp boundary nextHandBtn2 uses instead, so this lands in
+// the same visual spot regardless of statusLine having no content yet.
 function positionDealFirstHandBtn() {
   const dealFirstHandBtn = document.getElementById('dealFirstHandBtn');
   const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
-  const statusRect = document.getElementById('statusLine').getBoundingClientRect();
-  const desiredLeft = statusRect.right + 20;
-  const maxLeft = ovalRect.right - 90;
-  const clampedLeft = Math.min(desiredLeft, maxLeft);
-  dealFirstHandBtn.style.left = (clampedLeft - ovalRect.left) + 'px';
-  dealFirstHandBtn.style.top = (statusRect.top + statusRect.height / 2 - ovalRect.top) + 'px';
+  const btnRect = dealFirstHandBtn.getBoundingClientRect();
+  const maxLeft = ovalRect.right - 90 - btnRect.width;
+  dealFirstHandBtn.style.left = (maxLeft - ovalRect.left) + 'px';
+  dealFirstHandBtn.style.top = (ovalRect.height / 2) + 'px';
   dealFirstHandBtn.style.transform = 'translateY(-50%)';
 }
 
