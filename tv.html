@@ -1018,7 +1018,11 @@ function dealFirstHand() {
   };
   updateBlindsBadge();
   scheduleBlindLevelUp();
-  startNewHand();
+  // Table must actually be visible BEFORE startNewHand() runs — it fires
+  // the dealing animation's first SFX.cardFlip() synchronously, so if the
+  // table were revealed after this block, the very first hand's deal
+  // sound would start playing while the lobby/setup screen was still on
+  // screen instead of the table. Reveal-then-deal, in that order.
   document.getElementById('setupArea').style.display = 'none';
   document.getElementById('setupHeader').style.display = 'none';
   document.body.style.padding = '0';
@@ -1030,6 +1034,7 @@ function dealFirstHand() {
   document.getElementById('jumbo').style.display = 'block';
   requestAnimationFrame(positionPotBadge); // table isn't laid out until jumbo is actually visible
   requestAnimationFrame(compensateScrollbarWidth); // content height just changed a lot — scrollbar presence may have too
+  startNewHand();
 }
 
 // Anchors Pot's RIGHT edge to the game window's own measured right edge —
