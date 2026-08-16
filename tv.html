@@ -518,7 +518,7 @@
       <div id="hostControls"></div>
     </div>
     <button id="nextHandBtn2" style="display:none;position:absolute;z-index:10;">Deal Next Hand</button>
-    <button id="dealFirstHandBtn" style="display:none;position:absolute;z-index:10;left:50%;top:50%;transform:translate(-50%,-50%);">Deal the First Hand</button>
+    <button id="dealFirstHandBtn" style="display:none;position:absolute;z-index:10;">Deal First Hand<br><span style="font-size:0.7em;">(pre-flop)</span></button>
   </div>
 </div>
 
@@ -1043,13 +1043,33 @@ function dealFirstHand() {
   // straight from gameConfig, with no handState needed yet. The host then
   // decides when everyone's ready via an explicit button, rather than a
   // guessed delay.
-  requestAnimationFrame(renderPreDealSeats);
+  requestAnimationFrame(() => {
+    renderPreDealSeats();
+    positionDealFirstHandBtn();
+  });
   const dealFirstHandBtn = document.getElementById('dealFirstHandBtn');
   dealFirstHandBtn.style.display = 'inline-block';
   dealFirstHandBtn.onclick = () => {
     dealFirstHandBtn.style.display = 'none';
     startNewHand();
   };
+}
+
+// Same spot and look as "Deal Next Hand" (nextHandBtn2 in render()): sits to
+// the right of #statusLine's actual rendered position, vertically centered
+// on it, clamped so it can never end up past the oval's own rim. Kept as its
+// own function (rather than inlined) since it must also run once up front
+// from dealFirstHand(), before any handState/render() call exists yet.
+function positionDealFirstHandBtn() {
+  const dealFirstHandBtn = document.getElementById('dealFirstHandBtn');
+  const ovalRect = document.getElementById('ovalTable').getBoundingClientRect();
+  const statusRect = document.getElementById('statusLine').getBoundingClientRect();
+  const desiredLeft = statusRect.right + 20;
+  const maxLeft = ovalRect.right - 90;
+  const clampedLeft = Math.min(desiredLeft, maxLeft);
+  dealFirstHandBtn.style.left = (clampedLeft - ovalRect.left) + 'px';
+  dealFirstHandBtn.style.top = (statusRect.top + statusRect.height / 2 - ovalRect.top) + 'px';
+  dealFirstHandBtn.style.transform = 'translateY(-50%)';
 }
 
 // Draws seat signs (name + starting stack, no cards yet) and the dealer
