@@ -1036,8 +1036,12 @@ function dealFirstHand() {
   requestAnimationFrame(compensateScrollbarWidth); // content height just changed a lot — scrollbar presence may have too
   // Brief pause so players actually get to see/take in the table before the
   // first card starts flying — without this, dealing began the instant the
-  // table appeared, too fast to register it had even shown up.
-  setTimeout(startNewHand, 2500);
+  // table appeared, too fast to register it had even shown up. Scales with
+  // player count: more seats to visually scan means more time needed. 2500ms
+  // baseline at 2 players, +667ms per player above that (8 players ≈ 6500ms
+  // total, +4000ms over baseline, per Mark's call).
+  const dealDelayMs = 2500 + Math.max(0, activeSeats.length - 2) * 667;
+  setTimeout(startNewHand, dealDelayMs);
 }
 
 // Anchors Pot's RIGHT edge to the game window's own measured right edge —
