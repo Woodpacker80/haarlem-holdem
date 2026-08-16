@@ -1034,7 +1034,10 @@ function dealFirstHand() {
   document.getElementById('jumbo').style.display = 'block';
   requestAnimationFrame(positionPotBadge); // table isn't laid out until jumbo is actually visible
   requestAnimationFrame(compensateScrollbarWidth); // content height just changed a lot — scrollbar presence may have too
-  startNewHand();
+  // Brief pause so players actually get to see/take in the table before the
+  // first card starts flying — without this, dealing began the instant the
+  // table appeared, too fast to register it had even shown up.
+  setTimeout(startNewHand, 2500);
 }
 
 // Anchors Pot's RIGHT edge to the game window's own measured right edge —
