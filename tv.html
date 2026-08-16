@@ -1070,7 +1070,21 @@ function positionDealFirstHandBtn() {
   const btnRect = dealFirstHandBtn.getBoundingClientRect();
   const maxLeft = ovalRect.right - 90 - btnRect.width;
   dealFirstHandBtn.style.left = (maxLeft - ovalRect.left) + 'px';
-  dealFirstHandBtn.style.top = (ovalRect.height / 2) + 'px';
+
+  // Match "Deal Next Hand"'s height exactly. #actionLog and #boardArea both
+  // reserve their normal height via CSS min-height even with no content, so
+  // they don't shift #statusLine's position — but #resultArea is genuinely
+  // empty pre-deal and only gains a pot box's worth of height once a hand
+  // actually completes, which pulls statusLine (and nextHandBtn2) upward.
+  // Render a same-shaped dummy pot box just long enough to measure the real
+  // position, then remove it before the next paint — never visible.
+  const resultArea = document.getElementById('resultArea');
+  const priorResultContent = resultArea.innerHTML;
+  resultArea.innerHTML = '<div class="potbox"><div class="amount">Main Pot: 000</div><div class="eligible">Won by: placeholder</div></div>';
+  const statusRect = document.getElementById('statusLine').getBoundingClientRect();
+  resultArea.innerHTML = priorResultContent;
+
+  dealFirstHandBtn.style.top = (statusRect.top + statusRect.height / 2 - ovalRect.top) + 'px';
   dealFirstHandBtn.style.transform = 'translateY(-50%)';
 }
 
@@ -1767,6 +1781,12 @@ function renderFinalStandingsScreen() {
 
 function render() {
   if (!handState) return;
+  // A hand genuinely exists now, so "Deal First Hand" is never valid to show
+  // any more — regardless of which tab/client actually clicked it. Without
+  // this, a browser tab that never registered its own click (a second open
+  // tab, or a reload mid-game) keeps showing it forever, since its own
+  // onclick handler is otherwise the only thing that ever hides it.
+  document.getElementById('dealFirstHandBtn').style.display = 'none';
   const h = handState;
   if (gameOverInfo) {
     // Full-screen takeover — completely bypasses the rest of this function,
