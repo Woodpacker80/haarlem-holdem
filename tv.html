@@ -1058,7 +1058,7 @@ function publish() {
   }
 }
 
-let selectedStartStack = 2500; // set by the preset buttons; default matches the game's original starting numbers exactly
+let selectedStartStack = 5000; // set by the preset buttons; default changed from the original 2,500 to 5,000 per Mark — a middle-length game by default, with 2,500 (shorter) and 7,500 (longer) still available as alternatives
 
 // Derives Big Blind / Small Blind / Ante from a starting stack, per the
 // fixed ratio researched against real tournament structure sheets (not
@@ -1087,11 +1087,11 @@ document.querySelectorAll('.stackPresetBtn').forEach(btn => {
       `Blinds ${smallBlindAmount}/${bigBlindAmount} • Ante ${anteAmount}`;
   });
 });
-// Fire once on load so the default (2500, already selected below) shows
+// Fire once on load so the default (5000, already selected below) shows
 // its derived numbers immediately rather than leaving the preview blank
 // until the host actually clicks something.
 document.addEventListener('DOMContentLoaded', () => {
-  const defaultBtn = document.querySelector('.stackPresetBtn[data-stack="2500"]');
+  const defaultBtn = document.querySelector('.stackPresetBtn[data-stack="5000"]');
   if (defaultBtn) defaultBtn.click();
 });
 
