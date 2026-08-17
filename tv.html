@@ -902,10 +902,25 @@ function buildChipPileSVG(amount, smallBlind) {
   const breakdown = decomposeChipAmount(amount, smallBlind);
   if (breakdown.length === 0) return '';
   const slots = PILE_SLOT_POSITIONS[Math.min(breakdown.length, 5) - 1];
-  let inner = '';
-  breakdown.forEach(({ tierIndex, count }, i) => {
-    const tier = CHIP_TIERS[tierIndex];
+  // Assign each tier its slot first (tier order from decomposeChipAmount is
+  // highest-value-first, which has nothing to do with visual depth), THEN
+  // sort by that slot's cy before drawing. Larger cy = further forward/
+  // closer to the viewer, so it must be drawn LAST to end up on top — the
+  // same depth-vs-draw-order bug found and fixed in the lobby illustration,
+  // reproduced independently here since this is a separate function. Without
+  // this sort, whichever tier happens to land in the "closer" slot could
+  // still be drawn first and get covered by a tier drawn later into a
+  // slot that's actually further back — exactly what happened live: a red
+  // 1-chip stack (assigned the further-back slot) was drawn after — and so
+  // on top of — a blue 1-chip stack in the closer slot.
+  const placed = breakdown.map(({ tierIndex, count }, i) => {
     const [cx, cy] = slots[i % slots.length];
+    return { tierIndex, count, cx, cy };
+  });
+  placed.sort((a, b) => a.cy - b.cy);
+  let inner = '';
+  placed.forEach(({ tierIndex, count, cx, cy }) => {
+    const tier = CHIP_TIERS[tierIndex];
     inner += chipStackMarkup(cx, cy, tier.fill, tier.stroke, tier.spotA, tier.spotB, count);
   });
   return `<svg viewBox="0 0 120 100" width="56" height="46" style="display:block;">${inner}</svg>`;
