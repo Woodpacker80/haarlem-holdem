@@ -878,20 +878,25 @@ function chipStackMarkup(cx, cy, fill, stroke, spotA, spotB, layers) {
   return inner;
 }
 
-// Hand-placed, staggered local positions for however many different-colored
-// stacks a decomposition needs (1 through 5) — a loose cluster, not a
-// straight row, matching the look the old fixed all-in graphic already
-// established (its 10 stacks were staggered, never gridded). Confirmed via
-// a rendered mockup that a rare 4-5 stack amount (mathematically possible
-// but uncommon — needs genuine leftover at every single tier) still reads
-// fine in this same denser style, so no separate design was needed for it.
-const PILE_SLOT_POSITIONS = [
-  [[60, 60]],
-  [[38, 62], [82, 62]],
-  [[35, 68], [60, 58], [85, 66]],
-  [[30, 70], [52, 60], [68, 60], [90, 70]],
-  [[25, 72], [45, 62], [60, 56], [75, 62], [95, 72]],
-];
+// Every pile is a level row of full-size, touching (not overlapping)
+// stacks — same chip size no matter how many colors are in the bet. The
+// SVG's own viewBox/display size grows wider as more stacks join, rather
+// than squeezing more stacks into one fixed box (which is what forced the
+// old staggered-cluster layout below 120 units wide — only 2 full-size
+// chips can ever fit touching-not-overlapping in a fixed 120-unit box; a
+// 3rd genuinely doesn't fit without either shrinking every chip or
+// accepting overlap). Growing the box instead works because every pile is
+// positioned via `transform:translate(-50%,-50%)` in CSS — always centered
+// on its own anchor point regardless of its own width, so a wider pile
+// for a bigger bet doesn't shift or misalign anything.
+// SPACING (44) is the exact touching distance for this rx, confirmed by
+// eye against a live TV photo — NOT the naive circle-tangent formula
+// (2*rx=46), which measurably left a hairline gap once actually rendered
+// at this chip's specific ellipse proportions.
+const PILE_CHIP_RX = 23;
+const PILE_SPACING = 44;
+const PILE_EDGE_PAD = 6; // clearance for stroke-width + drop-shadow filter bleed, so neither gets clipped at the SVG's own edge
+const PILE_DISPLAY_SCALE = 56 / 120; // pixels per viewBox unit — matches the density the original fixed-box 2-stack pile already used, so chip size on screen doesn't change by switching to this scheme
 
 // The single function behind EVERY chip pile in the game now — ordinary
 // bets, calls, raises, all-ins, and pot payouts alike. Decomposes a real
@@ -901,29 +906,26 @@ const PILE_SLOT_POSITIONS = [
 function buildChipPileSVG(amount, smallBlind) {
   const breakdown = decomposeChipAmount(amount, smallBlind);
   if (breakdown.length === 0) return '';
-  const slots = PILE_SLOT_POSITIONS[Math.min(breakdown.length, 5) - 1];
-  // Assign each tier its slot first (tier order from decomposeChipAmount is
-  // highest-value-first, which has nothing to do with visual depth), THEN
-  // sort by that slot's cy before drawing. Larger cy = further forward/
-  // closer to the viewer, so it must be drawn LAST to end up on top — the
-  // same depth-vs-draw-order bug found and fixed in the lobby illustration,
-  // reproduced independently here since this is a separate function. Without
-  // this sort, whichever tier happens to land in the "closer" slot could
-  // still be drawn first and get covered by a tier drawn later into a
-  // slot that's actually further back — exactly what happened live: a red
-  // 1-chip stack (assigned the further-back slot) was drawn after — and so
-  // on top of — a blue 1-chip stack in the closer slot.
-  const placed = breakdown.map(({ tierIndex, count }, i) => {
-    const [cx, cy] = slots[i % slots.length];
-    return { tierIndex, count, cx, cy };
-  });
-  placed.sort((a, b) => a.cy - b.cy);
+  const n = breakdown.length;
+  const viewW = PILE_SPACING * (n - 1) + PILE_CHIP_RX * 2 + PILE_EDGE_PAD * 2;
+  const viewH = 100;
+  const cy = 62;
+  const startX = PILE_EDGE_PAD + PILE_CHIP_RX;
+  // Tier order from decomposeChipAmount is highest-value-first, which has
+  // nothing to do with left-to-right placement — assign slots left to
+  // right in that same order (arbitrary but consistent) purely for a
+  // stable, non-jittery look as an amount changes hand to hand.
+  const placed = breakdown.map(({ tierIndex, count }, i) => ({
+    tierIndex, count, cx: startX + i * PILE_SPACING, cy,
+  }));
   let inner = '';
   placed.forEach(({ tierIndex, count, cx, cy }) => {
     const tier = CHIP_TIERS[tierIndex];
     inner += chipStackMarkup(cx, cy, tier.fill, tier.stroke, tier.spotA, tier.spotB, count);
   });
-  return `<svg viewBox="0 0 120 100" width="56" height="46" style="display:block;">${inner}</svg>`;
+  const dispW = Math.round(viewW * PILE_DISPLAY_SCALE);
+  const dispH = Math.round(viewH * PILE_DISPLAY_SCALE);
+  return `<svg viewBox="0 0 ${viewW} ${viewH}" width="${dispW}" height="${dispH}" style="display:block;">${inner}</svg>`;
 }
 let rankingSyncedForResult = false; // whether frozenRankOrder already reflects the CURRENT hand's own result
 watchPlayerNames((names) => { playerNames = names; render(); });
