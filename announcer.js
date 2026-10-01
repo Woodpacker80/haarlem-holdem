@@ -42,76 +42,23 @@
     return clips[word];
   }
 
-  // How long to wait for a clip to actually finish before giving up on it
-  // and moving on. Without this, a clip that never fires 'ended' — e.g. a
-  // missing file that the browser doesn't reject play() for, just silently
-  // never starts — would hang the ENTIRE sequence forever, since nothing
-  // else was listening for that case. Every real clip here is well under
-  // 1.2s, so 3s is generous padding, not a normal-case delay.
-  const CLIP_TIMEOUT_MS = 3000;
-
   // Plays a list of words back-to-back (e.g. ['raise', 'allin']), each one
   // waiting for the previous to actually finish, then calls `onDone`. If a
-  // clip fails for any reason (missing file, decode error, autoplay block,
-  // or simply never firing 'ended' within CLIP_TIMEOUT_MS) this moves on
-  // rather than hanging the sequence — a missing announcer line should
-  // never stop the chip sound or the game itself. The failure is still
-  // reported (not swallowed silently): logged to the console AND, if the
-  // caller passed `onError`, handed to it too — tv.html uses that to show
-  // the error directly on screen, since Mark's actual setup (an NVIDIA
-  // Shield, mouse-only, no keyboard, no computer) has no practical way to
-  // open a browser console.
-  function playSequence(words, onDone, onError) {
+  // clip fails to play for any reason (missing file, autoplay block, etc.)
+  // this moves on rather than silently hanging the sequence — a missing
+  // announcer line should never stop the chip sound or the game itself.
+  function playSequence(words, onDone) {
     let i = 0;
     function playNext() {
       if (i >= words.length) { onDone && onDone(); return; }
-      const word = words[i];
-      const clip = getClip(word);
+      const clip = getClip(words[i]);
       i++;
-      let settled = false;
-      const cleanup = () => {
-        clip.removeEventListener('ended', onEnded);
-        clip.removeEventListener('error', onError_);
-        clearTimeout(timer);
-      };
-      const fail = (label) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        console.warn(`[Announcer] couldn't play "${word}" (${CLIP_SRC[word]}):`, label);
-        onError && onError(word, label);
-        playNext();
-      };
-      const onEnded = () => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        playNext();
-      };
-      const onError_ = () => fail((clip.error && clip.error.message) || 'media error');
-      const timer = setTimeout(() => fail(`timed out after ${CLIP_TIMEOUT_MS}ms (no 'ended' event — likely a missing/unreachable file)`), CLIP_TIMEOUT_MS);
+      const advance = () => { clip.removeEventListener('ended', advance); playNext(); };
       clip.currentTime = 0;
-      clip.addEventListener('ended', onEnded);
-      clip.addEventListener('error', onError_);
-      clip.play().catch((err) => fail((err && (err.name || err.message)) || String(err)));
+      clip.addEventListener('ended', advance);
+      clip.play().catch(advance);
     }
     playNext();
-  }
-
-  // Call this once, inside a real click/tap handler, same spirit as
-  // SFX.unlock() — primes every clip (play immediately paused again) while
-  // still inside a user gesture, so browsers that gate HTMLAudioElement
-  // playback on a gesture (some TV/set-top browsers are stricter about this
-  // than desktop Chrome) have already granted it before the first REAL
-  // announcement, which happens later from a Firebase event, not a click.
-  function unlock() {
-    Object.keys(CLIP_SRC).forEach((word) => {
-      const clip = getClip(word);
-      const p = clip.play();
-      if (p && p.catch) p.catch(() => {}); // expected to be silently fine/no-op on browsers that don't need this
-      clip.pause();
-      clip.currentTime = 0;
-    });
   }
 
   // Decides which word(s) to speak for a betting action and plays them in
@@ -125,7 +72,7 @@
   //   allIn:      true when this action puts the player all-in — "All-in"
   //               plays right after the main word (both words, not a
   //               replacement — Mark's call)
-  function announceAction({ type, openingBet = false, allIn = false }, onDone, onError) {
+  function announceAction({ type, openingBet = false, allIn = false }, onDone) {
     const words = [];
     switch (type) {
       case 'fold': words.push('fold'); break;
@@ -135,8 +82,8 @@
       default: onDone && onDone(); return;
     }
     if (allIn) words.push('allin');
-    playSequence(words, onDone, onError);
+    playSequence(words, onDone);
   }
 
-  global.Announcer = { announceAction, playSequence, unlock };
+  global.Announcer = { announceAction, playSequence };
 })(typeof window !== 'undefined' ? window : globalThis);

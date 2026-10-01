@@ -1100,7 +1100,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function dealFirstHand() {
   SFX.unlock();
-  Announcer.unlock();
   gameOverInfo = null;
   gameOverConfettiFired = false;
   const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
@@ -1318,7 +1317,6 @@ function startNewHand() {
 
 function dealNextHand() {
   SFX.unlock();
-  Announcer.unlock();
   // Starting-of-hand stacks — needed for the same-hand tiebreak below,
   // since gameConfig.stacks is about to be overwritten with the END-of-hand
   // stacks on the very next line.
@@ -1501,24 +1499,16 @@ watchActionQueue((key, request) => {
       // The chip SFX always plays from inside onDone, i.e. AFTER the spoken
       // word(s) finish — Mark's call, not layered together.
       {
-        // Shows announcer playback failures right on the TV screen (reusing
-        // the same #tvError line used for rejected actions above) — Mark's
-        // actual setup (NVIDIA Shield, mouse-only, no keyboard/computer) has
-        // no practical way to open a browser console, so this is the only
-        // way he can actually see what's going wrong.
-        const reportAnnouncerError = (word, reason) => {
-          document.getElementById('tvError').textContent = `⚠ Announcer couldn't play "${word}": ${reason}`;
-        };
         const isAllIn = (type === 'call' || type === 'raise') && handState.stacks[request.seat] === 0;
         if (type === 'fold') {
-          Announcer.announceAction({ type: 'fold' }, () => SFX.fold(), reportAnnouncerError);
+          Announcer.announceAction({ type: 'fold' }, () => SFX.fold());
         } else if (type === 'check') {
-          Announcer.announceAction({ type: 'check' }, () => SFX.checkCall(), reportAnnouncerError);
+          Announcer.announceAction({ type: 'check' }, () => SFX.checkCall());
         } else if (type === 'call') {
-          Announcer.announceAction({ type: 'call', allIn: isAllIn }, () => SFX.checkCall(), reportAnnouncerError);
+          Announcer.announceAction({ type: 'call', allIn: isAllIn }, () => SFX.checkCall());
         } else if (type === 'raise') {
           const openingBet = preActionCurrentBet === 0;
-          Announcer.announceAction({ type: 'raise', openingBet, allIn: isAllIn }, () => SFX.raise(), reportAnnouncerError);
+          Announcer.announceAction({ type: 'raise', openingBet, allIn: isAllIn }, () => SFX.raise());
         }
       }
     }
