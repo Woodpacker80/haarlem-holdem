@@ -47,9 +47,12 @@
   // clip fails to play for any reason (missing file, autoplay block, etc.)
   // this moves on rather than silently hanging the sequence — a missing
   // announcer line should never stop the chip sound or the game itself.
-  // The failure is still logged (not swallowed silently) so it shows up in
-  // the browser console instead of just reading as "no speech, no clue why".
-  function playSequence(words, onDone) {
+  // The failure is still reported (not swallowed silently): logged to the
+  // console AND, if the caller passed `onError`, handed to it too — tv.html
+  // uses that to show the error directly on screen, since Mark's actual
+  // setup (an NVIDIA Shield, mouse-only, no keyboard, no computer) has no
+  // practical way to open a browser console.
+  function playSequence(words, onDone, onError) {
     let i = 0;
     function playNext() {
       if (i >= words.length) { onDone && onDone(); return; }
@@ -60,7 +63,9 @@
       clip.currentTime = 0;
       clip.addEventListener('ended', advance);
       clip.play().catch((err) => {
-        console.warn(`[Announcer] couldn't play "${word}" (${CLIP_SRC[word]}):`, err && err.name, err && err.message);
+        const label = (err && (err.name || err.message)) || String(err);
+        console.warn(`[Announcer] couldn't play "${word}" (${CLIP_SRC[word]}):`, label);
+        onError && onError(word, label);
         advance();
       });
     }
@@ -94,7 +99,7 @@
   //   allIn:      true when this action puts the player all-in — "All-in"
   //               plays right after the main word (both words, not a
   //               replacement — Mark's call)
-  function announceAction({ type, openingBet = false, allIn = false }, onDone) {
+  function announceAction({ type, openingBet = false, allIn = false }, onDone, onError) {
     const words = [];
     switch (type) {
       case 'fold': words.push('fold'); break;
@@ -104,7 +109,7 @@
       default: onDone && onDone(); return;
     }
     if (allIn) words.push('allin');
-    playSequence(words, onDone);
+    playSequence(words, onDone, onError);
   }
 
   global.Announcer = { announceAction, playSequence, unlock };

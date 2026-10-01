@@ -1501,16 +1501,24 @@ watchActionQueue((key, request) => {
       // The chip SFX always plays from inside onDone, i.e. AFTER the spoken
       // word(s) finish — Mark's call, not layered together.
       {
+        // Shows announcer playback failures right on the TV screen (reusing
+        // the same #tvError line used for rejected actions above) — Mark's
+        // actual setup (NVIDIA Shield, mouse-only, no keyboard/computer) has
+        // no practical way to open a browser console, so this is the only
+        // way he can actually see what's going wrong.
+        const reportAnnouncerError = (word, reason) => {
+          document.getElementById('tvError').textContent = `⚠ Announcer couldn't play "${word}": ${reason}`;
+        };
         const isAllIn = (type === 'call' || type === 'raise') && handState.stacks[request.seat] === 0;
         if (type === 'fold') {
-          Announcer.announceAction({ type: 'fold' }, () => SFX.fold());
+          Announcer.announceAction({ type: 'fold' }, () => SFX.fold(), reportAnnouncerError);
         } else if (type === 'check') {
-          Announcer.announceAction({ type: 'check' }, () => SFX.checkCall());
+          Announcer.announceAction({ type: 'check' }, () => SFX.checkCall(), reportAnnouncerError);
         } else if (type === 'call') {
-          Announcer.announceAction({ type: 'call', allIn: isAllIn }, () => SFX.checkCall());
+          Announcer.announceAction({ type: 'call', allIn: isAllIn }, () => SFX.checkCall(), reportAnnouncerError);
         } else if (type === 'raise') {
           const openingBet = preActionCurrentBet === 0;
-          Announcer.announceAction({ type: 'raise', openingBet, allIn: isAllIn }, () => SFX.raise());
+          Announcer.announceAction({ type: 'raise', openingBet, allIn: isAllIn }, () => SFX.raise(), reportAnnouncerError);
         }
       }
     }
