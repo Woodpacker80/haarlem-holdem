@@ -47,18 +47,40 @@
   // clip fails to play for any reason (missing file, autoplay block, etc.)
   // this moves on rather than silently hanging the sequence — a missing
   // announcer line should never stop the chip sound or the game itself.
+  // The failure is still logged (not swallowed silently) so it shows up in
+  // the browser console instead of just reading as "no speech, no clue why".
   function playSequence(words, onDone) {
     let i = 0;
     function playNext() {
       if (i >= words.length) { onDone && onDone(); return; }
-      const clip = getClip(words[i]);
+      const word = words[i];
+      const clip = getClip(word);
       i++;
       const advance = () => { clip.removeEventListener('ended', advance); playNext(); };
       clip.currentTime = 0;
       clip.addEventListener('ended', advance);
-      clip.play().catch(advance);
+      clip.play().catch((err) => {
+        console.warn(`[Announcer] couldn't play "${word}" (${CLIP_SRC[word]}):`, err && err.name, err && err.message);
+        advance();
+      });
     }
     playNext();
+  }
+
+  // Call this once, inside a real click/tap handler, same spirit as
+  // SFX.unlock() — primes every clip (play immediately paused again) while
+  // still inside a user gesture, so browsers that gate HTMLAudioElement
+  // playback on a gesture (some TV/set-top browsers are stricter about this
+  // than desktop Chrome) have already granted it before the first REAL
+  // announcement, which happens later from a Firebase event, not a click.
+  function unlock() {
+    Object.keys(CLIP_SRC).forEach((word) => {
+      const clip = getClip(word);
+      const p = clip.play();
+      if (p && p.catch) p.catch(() => {}); // expected to be silently fine/no-op on browsers that don't need this
+      clip.pause();
+      clip.currentTime = 0;
+    });
   }
 
   // Decides which word(s) to speak for a betting action and plays them in
@@ -85,5 +107,5 @@
     playSequence(words, onDone);
   }
 
-  global.Announcer = { announceAction, playSequence };
+  global.Announcer = { announceAction, playSequence, unlock };
 })(typeof window !== 'undefined' ? window : globalThis);

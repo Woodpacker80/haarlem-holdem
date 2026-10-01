@@ -1100,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function dealFirstHand() {
   SFX.unlock();
+  Announcer.unlock();
   gameOverInfo = null;
   gameOverConfettiFired = false;
   const activeSeats = Object.keys(currentSeats).map(Number).sort((a, b) => a - b);
@@ -1317,6 +1318,7 @@ function startNewHand() {
 
 function dealNextHand() {
   SFX.unlock();
+  Announcer.unlock();
   // Starting-of-hand stacks — needed for the same-hand tiebreak below,
   // since gameConfig.stacks is about to be overwritten with the END-of-hand
   // stacks on the very next line.
