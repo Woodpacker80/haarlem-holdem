@@ -539,6 +539,7 @@
 
 <script src="card-art.js"></script>
 <script src="sfx.js"></script>
+<script src="announcer.js"></script>
 <script type="module">
 import { ensureAuth, watchConnection } from './firebase-config.js';
 import { watchSeats, writePublicState, watchPublicState, writeHoleCards, watchActionQueue, clearActionQueueItem, clearGameState, kickSeat, clearBans, watchPlayerNames, watchPreActions, setPreAction, writeBlindLevel, watchServerTimeOffset, watchSitOut, setSitOut } from './game-sync.js';
@@ -1472,8 +1473,10 @@ watchActionQueue((key, request) => {
       // loop to even build a pile from. Captured here, from the OLD
       // bettingRound (still the real one at this point), so render() has
       // something correct to fall back to until the sweep clears it.
+      let preActionCurrentBet = null; // for the announcer: was this raise an opening bet or a re-raise? (see below)
       if (request.action.type === 'call' || request.action.type === 'raise') {
         const oldBettingRound = handState.bettingRound;
+        preActionCurrentBet = oldBettingRound.currentBet;
         if (request.action.type === 'raise') {
           pendingBetOverride[request.seat] = request.action.amount;
         } else {
@@ -1490,6 +1493,24 @@ watchActionQueue((key, request) => {
       lastActionType[request.seat] = request.action.type;
       logEvent(formatAction(request.seat, request.action, handState.stacks[request.seat]));
       publish();
+      // Announcer callout (TV only — see announcer.js). Fired here, off to
+      // the side of the actual state sync above, so the voice/chip-sound
+      // timing never holds up publish() or anything players are waiting on.
+      // The chip SFX always plays from inside onDone, i.e. AFTER the spoken
+      // word(s) finish — Mark's call, not layered together.
+      {
+        const isAllIn = (type === 'call' || type === 'raise') && handState.stacks[request.seat] === 0;
+        if (type === 'fold') {
+          Announcer.announceAction({ type: 'fold' }, () => SFX.fold());
+        } else if (type === 'check') {
+          Announcer.announceAction({ type: 'check' }, () => SFX.checkCall());
+        } else if (type === 'call') {
+          Announcer.announceAction({ type: 'call', allIn: isAllIn }, () => SFX.checkCall());
+        } else if (type === 'raise') {
+          const openingBet = preActionCurrentBet === 0;
+          Announcer.announceAction({ type: 'raise', openingBet, allIn: isAllIn }, () => SFX.raise());
+        }
+      }
     }
     document.getElementById('tvError').textContent = '';
   } catch (e) {
