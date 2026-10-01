@@ -42,16 +42,25 @@
     return clips[word];
   }
 
+  // How long to wait for a clip to actually finish before giving up on it
+  // and moving on. Without this, a clip that never fires 'ended' — e.g. a
+  // missing file that the browser doesn't reject play() for, just silently
+  // never starts — would hang the ENTIRE sequence forever, since nothing
+  // else was listening for that case. Every real clip here is well under
+  // 1.2s, so 3s is generous padding, not a normal-case delay.
+  const CLIP_TIMEOUT_MS = 3000;
+
   // Plays a list of words back-to-back (e.g. ['raise', 'allin']), each one
   // waiting for the previous to actually finish, then calls `onDone`. If a
-  // clip fails to play for any reason (missing file, autoplay block, etc.)
-  // this moves on rather than silently hanging the sequence — a missing
-  // announcer line should never stop the chip sound or the game itself.
-  // The failure is still reported (not swallowed silently): logged to the
-  // console AND, if the caller passed `onError`, handed to it too — tv.html
-  // uses that to show the error directly on screen, since Mark's actual
-  // setup (an NVIDIA Shield, mouse-only, no keyboard, no computer) has no
-  // practical way to open a browser console.
+  // clip fails for any reason (missing file, decode error, autoplay block,
+  // or simply never firing 'ended' within CLIP_TIMEOUT_MS) this moves on
+  // rather than hanging the sequence — a missing announcer line should
+  // never stop the chip sound or the game itself. The failure is still
+  // reported (not swallowed silently): logged to the console AND, if the
+  // caller passed `onError`, handed to it too — tv.html uses that to show
+  // the error directly on screen, since Mark's actual setup (an NVIDIA
+  // Shield, mouse-only, no keyboard, no computer) has no practical way to
+  // open a browser console.
   function playSequence(words, onDone, onError) {
     let i = 0;
     function playNext() {
@@ -59,15 +68,32 @@
       const word = words[i];
       const clip = getClip(word);
       i++;
-      const advance = () => { clip.removeEventListener('ended', advance); playNext(); };
-      clip.currentTime = 0;
-      clip.addEventListener('ended', advance);
-      clip.play().catch((err) => {
-        const label = (err && (err.name || err.message)) || String(err);
+      let settled = false;
+      const cleanup = () => {
+        clip.removeEventListener('ended', onEnded);
+        clip.removeEventListener('error', onError_);
+        clearTimeout(timer);
+      };
+      const fail = (label) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
         console.warn(`[Announcer] couldn't play "${word}" (${CLIP_SRC[word]}):`, label);
         onError && onError(word, label);
-        advance();
-      });
+        playNext();
+      };
+      const onEnded = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        playNext();
+      };
+      const onError_ = () => fail((clip.error && clip.error.message) || 'media error');
+      const timer = setTimeout(() => fail(`timed out after ${CLIP_TIMEOUT_MS}ms (no 'ended' event — likely a missing/unreachable file)`), CLIP_TIMEOUT_MS);
+      clip.currentTime = 0;
+      clip.addEventListener('ended', onEnded);
+      clip.addEventListener('error', onError_);
+      clip.play().catch((err) => fail((err && (err.name || err.message)) || String(err)));
     }
     playNext();
   }
