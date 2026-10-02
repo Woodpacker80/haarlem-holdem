@@ -30,7 +30,16 @@
     background:radial-gradient(ellipse at center, #23433a 0%, #182e27 70%, #12211c 100%);padding:16px;}
   table{border-collapse:collapse;font-size:13px;width:100%;}
   th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #1c2338;}
-  #ovalTable{position:relative;width:96%;height:calc(var(--stageH, 484px) - 104px);margin:50px auto 0;}
+  #ovalTable{position:relative;width:96%;height:calc(var(--stageH, 484px) - 105px);margin:50px auto 0;}
+  /* Tablet-only: tv.html's #appRoot keeps 40px of empty space below the
+     table, which on the tablet made the page 31px taller than the screen —
+     Chrome then drew a thin scrollbar line down the right edge (spotted on
+     the real tablet). Bottom padding now matches the top (10px), and the
+     table is 1px shorter, so during play the page fits exactly and never
+     scrolls. The scrollbar itself is also hidden as a safety net; touch
+     scrolling still works if anything ever does overflow. */
+  #appRoot{padding-bottom:10px;scrollbar-width:none;}
+  #appRoot::-webkit-scrollbar{display:none;}
   #leaderboardSidebar{position:fixed;top:0;bottom:0;left:0;width:260px;
     background:rgba(10,15,30,0.94);border-right:2px solid #c9a84c;
     transform:translateX(-100%);transition:transform .3s;z-index:15;
