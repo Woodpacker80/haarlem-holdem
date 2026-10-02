@@ -261,25 +261,51 @@
   document.addEventListener('fullscreenchange', applyTabletZoom);
 
   /* Fullscreen as the default launch mode. Browsers only allow entering
-     fullscreen from a real tap, so it's requested on the FIRST tap anywhere
-     on the page (that same tap still does whatever it was aimed at, e.g.
-     picking a starting-stack preset). Only once: if fullscreen is later
-     left on purpose (Android's swipe + back gesture), it is NOT forced back
-     on — the layout simply re-fits the smaller normal-tab screen. */
-  let fullscreenRequested = false;
-  function requestFullscreenOnce(){
-    if (fullscreenRequested) return;
-    fullscreenRequested = true;
+     fullscreen from a real tap, so it's requested on a tap anywhere on the
+     page (that same tap still does whatever it was aimed at, e.g. picking a
+     starting-stack preset).
+
+     REAL BUG FOUND on the tablet (first version): this listened for
+     'pointerdown'. On a TOUCHscreen, Chrome only counts a tap as permission
+     for fullscreen once the finger LIFTS (pointerup / touchend / click) —
+     a touch-down doesn't qualify (it only does for a mouse). So the request
+     was silently refused and the browser bar stayed. Now listens on the
+     lift-off events instead.
+
+     Keeps trying on each tap until fullscreen has actually been entered
+     once (so one refused attempt doesn't give up for good). After that, if
+     fullscreen is left on purpose (Android's swipe + back gesture), it is
+     NOT forced back on — the layout simply re-fits the normal-tab screen.
+     Any refusal is shown in the on-screen error line (no console needed). */
+  let fullscreenAchieved = false;
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) fullscreenAchieved = true;
+  });
+  function showFullscreenError(msg){
+    // One tap fires several lift-off events; an early one can be refused
+    // while a later one succeeds. Only report if, a moment later, we're
+    // still genuinely not in fullscreen.
+    setTimeout(() => {
+      if (document.fullscreenElement) return;
+      const el = document.getElementById('tvError');
+      if (el) el.textContent = '⚠ fullscreen: ' + msg;
+    }, 600);
+  }
+  function tryFullscreen(e){
+    // Ignore script-generated clicks (e.g. the page auto-selecting the 5,000
+    // preset on load) — only a real finger tap can grant fullscreen.
+    if (e && e.isTrusted === false) return;
+    if (fullscreenAchieved || document.fullscreenElement) return;
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req && !document.fullscreenElement) {
-      try {
-        const p = req.call(el, { navigationUI: 'hide' });
-        if (p && p.catch) p.catch(() => {});
-      } catch (e) {}
-    }
+    if (!req) { showFullscreenError('not supported by this browser'); return; }
+    try {
+      const p = req.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch((e) => showFullscreenError(e && e.message ? e.message : String(e)));
+    } catch (e) { showFullscreenError(e.message); }
   }
-  document.addEventListener('pointerdown', requestFullscreenOnce, { capture: true });
+  ['pointerup', 'touchend', 'click'].forEach((type) =>
+    document.addEventListener(type, tryFullscreen, { capture: true }));
 })();
 </script>
 </head>
