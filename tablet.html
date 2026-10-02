@@ -321,6 +321,12 @@
 <body>
 <div id="appRoot">
 <button id="quitGameBtn" class="badgeDark" style="position:fixed;top:14px;left:28px;z-index:20;padding:6px 14px;font-size:12px;">Quit Game</button>
+<!-- Tablet-only: fullscreen on/off toggle (Mark's request — after leaving
+     fullscreen there was otherwise no way back without reloading). Sits
+     just below Quit Game, mirroring Rules below Pot on the right; same
+     style as Rules. Shown only during play (not in the lobby), and hidden
+     while the Rules panel is open, like the other top buttons. -->
+<button id="screenBtn" type="button" class="badgeDark" style="position:fixed;top:54px;left:28px;z-index:20;padding:5px 12px;font-size:11px;display:none;">Screen</button>
 <div id="levelUpBadge" style="display:none;position:fixed;top:14px;z-index:20;color:#c9a84c;
   font-weight:600;font-size:12px;background:rgba(0,0,0,0.28);padding:6px 14px;
   border-radius:8px;border:1px solid #c9a84c;white-space:nowrap;"></div>
@@ -1903,6 +1909,36 @@ function quitAfterCredits() {
 }
 
 document.getElementById('quitGameBtn').addEventListener('click', quitToLobby);
+
+// Tablet-only: SCREEN toggle. Tap = enter fullscreen if not in it, leave
+// it if already in it. Visibility follows the game table (#jumbo) and the
+// Rules panel automatically via observers, so none of the existing
+// show/hide code paths (Start Game, Quit Game, Start New Game, Rules
+// open/close) needed changing.
+const screenBtn = document.getElementById('screenBtn');
+screenBtn.addEventListener('click', () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch((e) => {
+      document.getElementById('tvError').textContent = '⚠ fullscreen: ' + e.message;
+    });
+  } else {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) { document.getElementById('tvError').textContent = '⚠ fullscreen: not supported by this browser'; return; }
+    const p = req.call(el, { navigationUI: 'hide' });
+    if (p && p.catch) p.catch((e) => {
+      if (!document.fullscreenElement) document.getElementById('tvError').textContent = '⚠ fullscreen: ' + e.message;
+    });
+  }
+});
+function updateScreenBtnVisibility() {
+  const tableShowing = document.getElementById('jumbo').style.display !== 'none';
+  const rulesOpen = document.getElementById('rulesSidebar').classList.contains('open');
+  screenBtn.style.display = tableShowing && !rulesOpen ? 'block' : 'none';
+}
+new MutationObserver(updateScreenBtnVisibility).observe(document.getElementById('jumbo'), { attributes: true, attributeFilter: ['style'] });
+new MutationObserver(updateScreenBtnVisibility).observe(document.getElementById('rulesSidebar'), { attributes: true, attributeFilter: ['class'] });
+updateScreenBtnVisibility();
 
 // 2. CLEAR ALL BANS — lifts every kick from the previous game, manually,
 // whenever the host chooses. See kickSeat/clearBans in game-sync.js.
